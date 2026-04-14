@@ -11,7 +11,14 @@ import globals from "globals";
 export default tseslint.config(
   // Global ignores
   {
-    ignores: ["dist/**", "src-tauri/**", "node_modules/**", "*.config.{js,ts}"],
+    ignores: [
+      "dist/**",
+      "src-tauri/**",
+      "node_modules/**",
+      "e2e/**",
+      "*.config.{js,ts}",
+      "wdio.conf.ts",
+    ],
   },
 
   // Base JS rules

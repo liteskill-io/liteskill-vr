@@ -2,5 +2,11 @@
   "env": {
     "browser": true
   },
-  "ignorePatterns": ["dist/**", "src-tauri/**", "*.config.{js,ts}"]
+  "ignorePatterns": [
+    "dist/**",
+    "src-tauri/**",
+    "e2e/**",
+    "*.config.{js,ts}",
+    "wdio.conf.ts"
+  ]
 }
