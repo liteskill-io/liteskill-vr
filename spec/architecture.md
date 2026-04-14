@@ -28,7 +28,7 @@
 │  └───────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────┘
          ▲                        ▲
-         │ UI interaction         │ MCP (stdio)
+         │ UI interaction         │ MCP (HTTP+SSE on 127.0.0.1)
          │                        │
     Researcher              Claude Code / Codex
                             (with pyghidra-mcp
@@ -50,7 +50,7 @@
 ### Rust Backend
 
 - **Project Store**: CRUD + delete for all entities. SQLite database (one `.lsvr` file per project) with FTS5 for full-text search.
-- **MCP Server**: Hosts MCP tools on localhost (stdio transport). Starts automatically with the app.
+- **MCP Server**: HTTP+SSE server on `127.0.0.1`. Starts automatically when a project is opened. Agents connect over HTTP.
 
 ## Data Flow
 

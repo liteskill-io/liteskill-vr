@@ -8,37 +8,35 @@ The MCP server is a **read-write interface**. Agents don't just dump findings �
 
 ## Connection
 
+The MCP server runs on HTTP (`127.0.0.1`) using the MCP HTTP+SSE transport. It starts automatically when LiteSkill VR opens a project. The port is displayed in the status bar.
+
 Configuration for Claude Code's MCP settings:
 
 ```json
 {
   "mcpServers": {
     "liteskill": {
-      "command": "liteskill-vr",
-      "args": ["--mcp"]
+      "url": "http://127.0.0.1:27182"
     }
   }
 }
 ```
 
-When invoked with `--mcp`, the app starts the MCP server on stdio without opening a window. The full UI can be opened separately and will connect to the same database.
+HTTP is the primary transport because:
+
+- LiteSkill VR is already running with its UI — the agent connects to it, not the other way around
+- Multiple agents can connect simultaneously (Claude Code and Codex at the same time)
+- No process lifecycle coupling between the agent and the app
 
 ### Author Identity
 
-The agent's identity is established at connection time via an environment variable or CLI argument:
+Each agent identifies itself via a custom header on every HTTP request:
 
-```json
-{
-  "mcpServers": {
-    "liteskill": {
-      "command": "liteskill-vr",
-      "args": ["--mcp", "--author", "claude-code"]
-    }
-  }
-}
+```
+X-LiteSkill-Author: claude-code
 ```
 
-All entities created through this connection are automatically stamped with `author: "claude-code"` and `author_type: "agent"`. The author is never passed per-call — it's a property of the connection. This prevents drift ("claude" vs "Claude" vs "claude-code").
+All entities created through that connection are stamped with the provided author and `author_type: "agent"`. If no header is provided, the author defaults to `"anonymous-agent"`.
 
 Human-created entities via the UI use `author_type: "human"` with the OS username as the author.
 
@@ -52,7 +50,7 @@ Human-created entities via the UI use `author_type: "human"` with the OS usernam
 6. **Session continuity**: `changes_since` shows what happened since the agent's last session.
 7. **Mistake recovery**: `bulk_delete` undoes an entire bad session in one call.
 
-## Tools (26 total)
+## Tools (30 total)
 
 ### Project
 
