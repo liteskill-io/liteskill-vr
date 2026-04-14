@@ -6,7 +6,7 @@ Each project is a standalone `.lsvr` file (SQLite). All entities below live with
 
 Every entity that tracks authorship (`Note`, `ItemOfInterest`, `Connection`) has `author` and `author_type` fields. These are **not** set per-call:
 
-- **MCP connections**: Author is established at connection time via the `--author` CLI argument. All entities created through that connection are automatically stamped. `author_type` is always `"agent"`.
+- **MCP connections**: Author is set via the `X-LiteSkill-Author` HTTP header on each request. If absent, defaults to `"anonymous-agent"`. `author_type` is always `"agent"`.
 - **UI**: Author is the OS username. `author_type` is always `"human"`.
 
 This prevents drift across calls ("claude" vs "Claude" vs "claude-code").

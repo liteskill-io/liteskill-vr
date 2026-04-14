@@ -100,6 +100,7 @@ pub fn dispatch(db: &Database, tool_name: &str, params: &Value, author: &str) ->
         // Connection Types
         "connection_type_list" => handle_connection_type_list(db),
         "connection_type_create" => handle_connection_type_create(db, params),
+        "connection_type_delete" => handle_connection_type_delete(db, params),
 
         // Items
         "item_list" => handle_item_list(db, params),
@@ -313,6 +314,17 @@ fn handle_connection_type_create(db: &Database, params: &Value) -> HandlerResult
     let description = param_str(params, "description").unwrap_or("");
     match db.connection_type_create(name, description) {
         Ok(ct) => HandlerResult::ok(serde_json::to_value(ct).unwrap_or_default()),
+        Err(e) => db_err_to_handler(e),
+    }
+}
+
+fn handle_connection_type_delete(db: &Database, params: &Value) -> HandlerResult {
+    let id = match param_str_required(params, "id") {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
+    match db.connection_type_delete(id) {
+        Ok(()) => HandlerResult::ok(json!({"deleted": true})),
         Err(e) => db_err_to_handler(e),
     }
 }
@@ -840,10 +852,29 @@ fn handle_filter(db: &Database, params: &Value) -> HandlerResult {
                 Err(e) => db_err_to_handler(e),
             }
         }
-        other => HandlerResult::err(
-            INVALID_PARAMS,
-            format!("filter does not yet support entity_type '{other}'"),
-        ),
+        "note" => {
+            let item_id = param_str(params, "item_id");
+            let author_type = param_str(params, "author_type");
+            let tags = params.get("tags").and_then(Value::as_array).map(|arr| {
+                arr.iter()
+                    .filter_map(Value::as_str)
+                    .map(String::from)
+                    .collect::<Vec<_>>()
+            });
+            match db.filter_notes(item_id, tags.as_deref(), author_type) {
+                Ok(results) => HandlerResult::ok(serde_json::to_value(results).unwrap_or_default()),
+                Err(e) => db_err_to_handler(e),
+            }
+        }
+        "connection" => {
+            let connection_type = param_str(params, "connection_type");
+            let author_type = param_str(params, "author_type");
+            match db.filter_connections(connection_type, author_type) {
+                Ok(results) => HandlerResult::ok(serde_json::to_value(results).unwrap_or_default()),
+                Err(e) => db_err_to_handler(e),
+            }
+        }
+        other => HandlerResult::err(INVALID_PARAMS, format!("Unknown entity_type '{other}'")),
     }
 }
 

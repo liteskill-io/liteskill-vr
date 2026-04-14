@@ -50,7 +50,7 @@ Human-created entities via the UI use `author_type: "human"` with the OS usernam
 6. **Session continuity**: `changes_since` shows what happened since the agent's last session.
 7. **Mistake recovery**: `bulk_delete` undoes an entire bad session in one call.
 
-## Tools (30 total)
+## Tools (31 total)
 
 ### Project
 
@@ -74,6 +74,7 @@ Human-created entities via the UI use `author_type: "human"` with the OS usernam
 | ------------------------ | --------------------- | --------------------------------------------------------- |
 | `connection_type_list`   | —                     | `ConnectionType[]`. **Call before creating connections.** |
 | `connection_type_create` | `name`, `description` | `ConnectionType`. Fails if name exists.                   |
+| `connection_type_delete` | `id`                  | void. Removes all connections of that type.               |
 
 Default connection types: `calls`, `imports`, `links`, `reads_config`, `writes_config`, `spawns`, `related`.
 

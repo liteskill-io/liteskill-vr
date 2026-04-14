@@ -92,6 +92,111 @@ impl Database {
         Ok(result)
     }
 
+    pub fn filter_notes(
+        &self,
+        item_id: Option<&str>,
+        tags: Option<&[String]>,
+        author_type: Option<&str>,
+    ) -> Result<Vec<super::models::NoteWithTags>> {
+        let mut sql = String::from(
+            "SELECT n.id, n.item_id, n.title, n.content, n.author, n.author_type, n.created_at, n.updated_at
+             FROM notes n WHERE 1=1",
+        );
+        let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+        if let Some(item_id) = item_id {
+            param_values.push(Box::new(item_id.to_string()));
+            let _ = write!(sql, " AND n.item_id = ?{}", param_values.len());
+        }
+        if let Some(at) = author_type {
+            param_values.push(Box::new(at.to_string()));
+            let _ = write!(sql, " AND n.author_type = ?{}", param_values.len());
+        }
+        if let Some(tags) = tags {
+            for tag in tags {
+                param_values.push(Box::new(tag.clone()));
+                let _ = write!(
+                    sql,
+                    " AND EXISTS(SELECT 1 FROM note_tags WHERE note_id = n.id AND tag_name = ?{})",
+                    param_values.len()
+                );
+            }
+        }
+        sql.push_str(" ORDER BY n.created_at");
+
+        let params_ref: Vec<&dyn rusqlite::types::ToSql> = param_values
+            .iter()
+            .map(std::convert::AsRef::as_ref)
+            .collect();
+        let mut stmt = self.conn.prepare(&sql)?;
+        let notes = stmt
+            .query_map(params_ref.as_slice(), |row| {
+                Ok(super::models::Note {
+                    id: row.get(0)?,
+                    item_id: row.get(1)?,
+                    title: row.get(2)?,
+                    content: row.get(3)?,
+                    author: row.get(4)?,
+                    author_type: row.get(5)?,
+                    created_at: row.get(6)?,
+                    updated_at: row.get(7)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        let mut result = Vec::with_capacity(notes.len());
+        for note in notes {
+            let tags = self.get_note_tags(&note.id)?;
+            result.push(super::models::NoteWithTags { note, tags });
+        }
+        Ok(result)
+    }
+
+    pub fn filter_connections(
+        &self,
+        connection_type: Option<&str>,
+        author_type: Option<&str>,
+    ) -> Result<Vec<super::models::Connection>> {
+        let mut sql = String::from(
+            "SELECT id, source_id, source_type, target_id, target_type, connection_type, description, author, author_type, created_at
+             FROM connections WHERE 1=1",
+        );
+        let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+        if let Some(ct) = connection_type {
+            param_values.push(Box::new(ct.to_string()));
+            let _ = write!(sql, " AND connection_type = ?{}", param_values.len());
+        }
+        if let Some(at) = author_type {
+            param_values.push(Box::new(at.to_string()));
+            let _ = write!(sql, " AND author_type = ?{}", param_values.len());
+        }
+        sql.push_str(" ORDER BY created_at");
+
+        let params_ref: Vec<&dyn rusqlite::types::ToSql> = param_values
+            .iter()
+            .map(std::convert::AsRef::as_ref)
+            .collect();
+        let mut stmt = self.conn.prepare(&sql)?;
+        let conns = stmt
+            .query_map(params_ref.as_slice(), |row| {
+                Ok(super::models::Connection {
+                    id: row.get(0)?,
+                    source_id: row.get(1)?,
+                    source_type: row.get(2)?,
+                    target_id: row.get(3)?,
+                    target_type: row.get(4)?,
+                    connection_type: row.get(5)?,
+                    description: row.get(6)?,
+                    author: row.get(7)?,
+                    author_type: row.get(8)?,
+                    created_at: row.get(9)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(conns)
+    }
+
     pub fn bulk_delete(
         &self,
         author: Option<&str>,

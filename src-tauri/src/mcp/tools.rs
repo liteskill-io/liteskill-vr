@@ -84,6 +84,12 @@ fn connection_type_tools() -> Vec<Value> {
             }),
             &["name", "description"],
         ),
+        tool(
+            "connection_type_delete",
+            "Delete a registered connection type. Removes all connections of that type.",
+            &json!({"id": {"type": "string"}}),
+            &["id"],
+        ),
     ]
 }
 

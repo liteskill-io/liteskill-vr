@@ -49,6 +49,19 @@ impl Database {
         })
     }
 
+    pub fn connection_type_delete(&self, id: &str) -> Result<()> {
+        let changes = self
+            .conn
+            .execute("DELETE FROM connection_types WHERE id = ?1", params![id])?;
+        if changes == 0 {
+            return Err(DbError::NotFound {
+                entity: "connection_type".to_string(),
+                id: id.to_string(),
+            });
+        }
+        Ok(())
+    }
+
     pub fn validate_connection_type(&self, name: &str) -> Result<()> {
         let exists: bool = self.conn.query_row(
             "SELECT EXISTS(SELECT 1 FROM connection_types WHERE name = ?1)",

@@ -159,6 +159,28 @@ async fn connection_type_list_returns_defaults() {
     assert!(types.iter().any(|t| t["name"] == "calls"));
 }
 
+#[tokio::test]
+async fn connection_type_create_and_delete() {
+    let s = TestServer::start().await;
+    let ct = s
+        .tool(
+            "connection_type_create",
+            json!({"name": "monitors", "description": "Source monitors target"}),
+        )
+        .await;
+    assert_eq!(ct["name"], "monitors");
+
+    let id = ct["id"].as_str().unwrap();
+    s.tool("connection_type_delete", json!({"id": id})).await;
+
+    let types = s.tool("connection_type_list", json!({})).await;
+    assert!(!types
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|t| t["name"] == "monitors"));
+}
+
 // --- Items ---
 
 #[tokio::test]
@@ -519,6 +541,76 @@ async fn filter_ioi_by_severity() {
         .await;
     assert_eq!(critical.as_array().unwrap().len(), 1);
     assert_eq!(critical[0]["title"], "critical_bug");
+}
+
+#[tokio::test]
+async fn filter_notes_by_author_type() {
+    let s = TestServer::start().await;
+    let item = s
+        .tool("item_create", json!({"name": "httpd", "item_type": "elf"}))
+        .await;
+    let item_id = item["id"].as_str().unwrap();
+
+    s.tool(
+        "note_create",
+        json!({"item_id": item_id, "title": "Agent note", "content": "from agent"}),
+    )
+    .await;
+
+    let agent_notes = s
+        .tool(
+            "filter",
+            json!({"entity_type": "note", "author_type": "agent"}),
+        )
+        .await;
+    assert_eq!(agent_notes.as_array().unwrap().len(), 1);
+
+    let human_notes = s
+        .tool(
+            "filter",
+            json!({"entity_type": "note", "author_type": "human"}),
+        )
+        .await;
+    assert!(human_notes.as_array().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn filter_connections_by_type() {
+    let s = TestServer::start().await;
+    let items = s
+        .tool(
+            "item_create_batch",
+            json!({"items": [
+                {"name": "httpd", "item_type": "elf"},
+                {"name": "libfoo.so", "item_type": "shared_object"},
+                {"name": "httpd.conf", "item_type": "config"}
+            ]}),
+        )
+        .await;
+    let items = items.as_array().unwrap();
+    let a = items[0]["id"].as_str().unwrap();
+    let b = items[1]["id"].as_str().unwrap();
+    let c = items[2]["id"].as_str().unwrap();
+
+    s.tool(
+        "connection_create_batch",
+        json!({"connections": [
+            {"source_id": a, "source_type": "item", "target_id": b, "target_type": "item", "connection_type": "links", "description": ""},
+            {"source_id": a, "source_type": "item", "target_id": c, "target_type": "item", "connection_type": "reads_config", "description": ""}
+        ]}),
+    )
+    .await;
+
+    let links = s
+        .tool(
+            "filter",
+            json!({"entity_type": "connection", "connection_type": "links"}),
+        )
+        .await;
+    assert_eq!(links.as_array().unwrap().len(), 1);
+
+    let all = s.tool("filter", json!({"entity_type": "connection"})).await;
+    assert_eq!(all.as_array().unwrap().len(), 2);
 }
 
 // --- Bulk Delete ---
