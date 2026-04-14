@@ -1,8 +1,8 @@
-# File Formats & Interoperability
+# File Formats
 
-## Design Principle
+## Project Files
 
-All exported data should be self-describing: a human can read the file and understand the research, and an AI agent can parse it without custom instructions.
+Each project is a single `.lsvr` file (SQLite database). The `.lsvr` extension is registered with the OS so double-clicking opens the project in LiteSkill VR.
 
 ## Export Formats
 
@@ -11,40 +11,44 @@ All exported data should be self-describing: a human can read the file and under
 Human-readable report generated from project data.
 
 ```markdown
-# [Project Name] — Vulnerability Research Report
+# [Project Name] — Research Report
 
-## Target: [target name]
+## Item: httpd (ELF, arm32)
 
-- Type: source
-- Location: https://github.com/example/repo
+**Status**: reviewed
+**Path**: /usr/bin/httpd
+**Tags**: interesting
 
-### Finding: Buffer Overflow in parse_header (Critical)
+### Items of Interest
 
-- **CWE**: CWE-787 (Out-of-bounds Write)
-- **CVSS**: 9.8 (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H)
-- **Status**: confirmed
+#### parse_header() [Critical] [memory-corruption]
 
-#### Description
+**Location**: 0x08041234
 
-[markdown narrative]
+No bounds check on Content-Length header. Attacker-controlled length
+passed directly to memcpy.
 
-#### Technical Detail
+#### auth_check() [High] [auth-bypass]
 
-[reproduction steps, PoC code blocks]
+**Location**: 0x08042000
 
-#### Evidence
+Password comparison uses strcmp — timing side-channel.
 
-- screenshot: crash.png
-- log: asan_output.txt
+### Notes
 
-#### Call Graph Path
+**Session summary** (claude-code, 2024-01-15)
 
-source_func → parse_input → parse_header → memcpy (sink)
+Analyzed httpd binary. Found 2 critical issues in request parsing...
+
+### Connections
+
+- httpd → libfoo.so [links]: dynamically links libfoo.so
+- httpd → /etc/httpd.conf [reads_config]: reads config at startup
 ```
 
 ### JSON Export
 
-Machine-readable full project export conforming to the data model schemas.
+Machine-readable full project export conforming to the data model.
 
 ```json
 {
@@ -52,35 +56,29 @@ Machine-readable full project export conforming to the data model schemas.
   "version": "1.0",
   "exported_at": "2026-04-13T00:00:00Z",
   "project": { ... },
-  "targets": [ ... ],
-  "findings": [ ... ],
-  "call_graphs": [ ... ],
-  "sessions": [ ... ]
+  "tags": [ ... ],
+  "connection_types": [ ... ],
+  "items": [ ... ],
+  "notes": [ ... ],
+  "items_of_interest": [ ... ],
+  "connections": [ ... ]
 }
 ```
 
 ### SARIF
 
-Static Analysis Results Interchange Format — for integration with GitHub Security, Azure DevOps, and other tools that consume SARIF.
+Static Analysis Results Interchange Format — for integration with GitHub Security, Azure DevOps, and other tools.
 
-- Each finding maps to a SARIF `result`
-- Call graph paths map to SARIF `codeFlows`
-- Evidence maps to SARIF `attachments`
+- Each item of interest maps to a SARIF `result`
+- Severity maps to SARIF `level`
+- Tags map to SARIF `taxa`
 
 ## Import Formats
 
-### Call Graphs
-
-See [call-graph.md](call-graph.md) for supported import sources (Ghidra, IDA, CodeQL, manual, custom JSON).
-
 ### SARIF Import
 
-Import findings from other static analysis tools as draft findings for review.
+Import results from static analysis tools as draft items of interest for review.
 
 ### LiteSkill VR JSON
 
 Re-import previously exported projects for merging or archiving.
-
-## File Association
-
-`.lsvr` extension registered with the OS for project files (JSON format with the extension renamed). Double-clicking opens the project in LiteSkill VR.

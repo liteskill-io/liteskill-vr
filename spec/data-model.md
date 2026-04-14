@@ -1,6 +1,6 @@
 # Data Model
 
-Each project is a standalone SQLite database file (`.lsvr`). All entities live within that database. No actual files are stored — items are documentation entries representing targets of interest.
+Each project is a standalone `.lsvr` file (SQLite). All entities below live within that database.
 
 ## Author Identity
 
@@ -82,7 +82,7 @@ Default connection types on project creation:
 
 ### Item
 
-A documentation entry representing any target of interest. No actual files are stored.
+A documentation entry representing any subject of analysis — not the file itself.
 
 ```typescript
 interface Item {
