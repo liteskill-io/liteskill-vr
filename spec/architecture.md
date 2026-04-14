@@ -3,70 +3,94 @@
 ## High-Level Diagram
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   Tauri Window                      │
-│                                                     │
-│  ┌──────────┐  ┌──────────────┐  ┌──────────────┐   │
-│  │  Chat    │  │  Call Graph  │  │  Findings    │   │
-│  │  Panel   │  │  Viewer      │  │  Editor      │   │
-│  └────┬─────┘  └──────┬───────┘  └──────┬───────┘   │
-│       │               │                 │           │
-│  ┌────┴───────────────┴─────────────────┴────────┐  │
-│  │              Frontend State (Zustand)         │  │
-│  └────────────────────┬──────────────────────────┘  │
-│                       │ IPC (invoke / events)       │
-├───────────────────────┼─────────────────────────────┤
-│                       │                             │
-│  ┌────────────────────┴──────────────────────────┐  │
-│  │              Tauri Rust Backend               │  │
-│  │                                               │  │
-│  │  ┌───────────┐  ┌──────────┐  ┌───────────┐   │  │
-│  │  │ Project   │  │ ACP      │  │ Analysis  │   │  │
-│  │  │ Store     │  │ Gateway  │  │ Engine    │   │  │
-│  │  └─────┬─────┘  └────┬─────┘  └─────┬─────┘   │  │
-│  │        │              │              │        │  │
-│  │  ┌─────┴─────┐  ┌────┴──────┐  ┌────┴──────┐  │  │
-│  │  │ SQLite    │  │ ACP       │  │ Graph     │  │  │
-│  │  │           │  │ Transport │  │ Compute   │  │  │
-│  │  └───────────┘  └───────────┘  └───────────┘  │  │
-│  └───────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│               LiteSkill VR (Tauri)              │
+│                                                 │
+│  ┌───────────────────────────────────────────┐  │
+│  │           Frontend (React/TS)             │  │
+│  │                                           │  │
+│  │  Tabbed Views · Search · Connection Map   │  │
+│  │  Item Browser · Notes · Tags              │  │
+│  └─────────────────┬─────────────────────────┘  │
+│                    │ IPC                        │
+│  ┌─────────────────┴─────────────────────────┐  │
+│  │           Rust Backend                    │  │
+│  │                                           │  │
+│  │  ┌─────────────┐    ┌─────────────────┐   │  │
+│  │  │ Project     │    │ MCP Server      │   │  │
+│  │  │ Store       │    │ (localhost)      │   │  │
+│  │  │             │    │                 │   │  │
+│  │  │ SQLite      │◄──►│ Tools for:      │   │  │
+│  │  │ (per project│    │ items, notes,   │   │  │
+│  │  │  .lsvr file)│    │ ioi, connections│   │  │
+│  │  │             │    │ tags, search    │   │  │
+│  │  └─────────────┘    └─────────────────┘   │  │
+│  └───────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────┘
+         ▲                        ▲
+         │ UI interaction         │ MCP (stdio)
+         │                        │
+    Researcher              Claude Code / Codex
+                            (with pyghidra-mcp
+                             for Ghidra access)
 ```
 
-## Component Responsibilities
+## Components
 
 ### Frontend (TypeScript / React)
 
-- **Chat Panel**: Renders conversation with AI agents; sends/receives messages via ACP Gateway.
-- **Call Graph Viewer**: Interactive graph visualization of function call relationships, data flow paths, taint tracking annotations.
-- **Findings Editor**: Structured form + markdown editor for documenting vulnerabilities, severity, reproduction steps, and evidence.
-- **Project Sidebar**: Tree view of targets, findings, and research sessions.
-- **Zustand Store**: Client-side state management; syncs with backend via Tauri IPC.
+- **Tab Bar**: Open items as tabs, browser-like navigation
+- **Item Browser**: List of all items in the project with status and summary stats
+- **Item Detail View**: Notes, items of interest, connections for the selected item
+- **Connection Map**: Cytoscape.js graph showing items and their connections across the project
+- **Search**: Full-text search with results across all entity types
+- **Tag Manager**: View, create, and edit registered tags and connection types
+- **Zustand Store**: Client-side state, syncs with Rust backend via Tauri IPC
 
-### Backend (Rust / Tauri)
+### Rust Backend
 
-- **Project Store**: CRUD operations on projects, targets, findings, annotations. Persists to SQLite.
-- **ACP Gateway**: Manages connections to AI agents via ACP. Handles message routing, context assembly, and tool registration.
-- **Analysis Engine**: Computes call graphs from imported data, performs reachability analysis, tracks taint propagation metadata.
-- **Graph Compute**: Graph algorithms (shortest path, dominators, strongly connected components) used by the analysis engine.
+- **Project Store**: CRUD + delete for all entities. SQLite database (one `.lsvr` file per project) with FTS5 for full-text search.
+- **MCP Server**: Hosts MCP tools on localhost (stdio transport). Starts automatically with the app.
 
 ## Data Flow
 
-1. User creates a **project** containing one or more **targets** (binaries, source repos, APIs).
-2. User imports or manually builds **call graphs** for targets.
-3. User documents **findings** — each linked to graph nodes, source locations, and evidence.
-4. AI agents connect via ACP, receive project context, and can query/annotate findings and graphs.
-5. User exports research as Markdown reports, JSON, or SARIF.
+1. User opens LiteSkill VR → opens or creates a `.lsvr` project file → MCP server starts.
+2. User creates items and adds notes via the UI.
+3. User starts Claude Code with `liteskill-mcp` configured.
+4. Claude calls `project_summary` to orient itself, then reads/writes entities via MCP tools.
+5. Frontend receives updates via IPC events and renders them in real time.
+6. User navigates the UI to review, edit, search, delete, and annotate.
 
 ## IPC Contract
 
-All frontend-backend communication uses Tauri's `invoke` for request/response and `listen`/`emit` for events.
+Frontend ↔ Backend communication uses Tauri `invoke` (request/response) and `listen`/`emit` (events).
 
 ```
-invoke("project_create", { name, description }) → ProjectId
-invoke("finding_create", { projectId, data }) → FindingId
-invoke("graph_import", { projectId, format, payload }) → GraphId
-invoke("acp_send", { agentId, message }) → AcpResponse
-listen("acp_stream", callback)  // streamed agent responses
-listen("graph_update", callback) // live graph mutations
+invoke("project_get") → Project
+invoke("item_list", { filters }) → Item[]
+invoke("item_get", { id }) → ItemDetail (item + notes + ioi + connections)
+invoke("item_create", { data }) → Item
+invoke("item_update", { id, data }) → Item
+invoke("item_delete", { id }) → void
+invoke("note_create", { item_id, data }) → Note
+invoke("note_delete", { id }) → void
+invoke("ioi_create", { item_id, data }) → ItemOfInterest
+invoke("ioi_delete", { id }) → void
+invoke("connection_create", { data }) → Connection
+invoke("connection_delete", { id }) → void
+invoke("connection_list", { entity_id }) → Connection[] (both directions)
+invoke("connection_list_all") → Connection[] (project-wide)
+invoke("tag_list") → Tag[]
+invoke("tag_create", { data }) → Tag
+invoke("tag_delete", { id }) → void
+invoke("connection_type_list") → ConnectionType[]
+invoke("connection_type_create", { data }) → ConnectionType
+invoke("search", { query, filters }) → SearchResult[]
+invoke("changes_since", { timestamp }) → ChangeSet
+
+listen("entity_changed", callback) // fired when MCP or UI mutates data
 ```
+
+## Persistence
+
+Each project is a single `.lsvr` file (SQLite with custom extension). The app opens project files via a standard file dialog. Projects can be backed up or shared by copying the file.

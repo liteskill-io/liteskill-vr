@@ -2,210 +2,146 @@
 
 ## Design Philosophy
 
-The UI is built for **rapid navigation across a large attack surface** — multiple binaries, shared objects, and firmware components. The researcher needs to hop between functions, binaries, findings, and graphs without losing context. Think less "IDE with panels" and more "browser with tabs, back/forward, and instant search."
+The UI is built for rapid navigation across a large project. The researcher needs to hop between items, search for patterns, review AI-generated findings, and correct mistakes without losing context.
 
 Key principles:
 
-- **Speed over structure**: every view is reachable in 1-2 keystrokes
-- **Multi-binary aware**: the project may contain dozens of `.so` files and binaries from a firmware image; the UI treats this as a navigable tree, not a flat list
-- **Context trails**: the app remembers where you've been and lets you retrace your steps
-- **Minimal chrome**: maximize canvas/content area, collapse everything else on demand
+- **Tabs, not panels**: each item opens in a tab, like a browser
+- **Speed over structure**: every view reachable in 1-2 keystrokes
+- **Search everything**: full-text search across all notes, items of interest, and connections
+- **Minimal chrome**: maximize content area, collapse everything else on demand
 
 ## Layout
 
-Single full-bleed viewport with floating/overlay elements. No permanent sidebar or fixed panels.
-
 ```
 ┌──────────────────────────────────────────────────────────┐
-│ ◄ ►  Breadcrumb: firmware > libfoo.so > parse_header    │
-│      ┌──────────────────────────────────────────┐        │
-│      │                                          │        │
-│      │                                          │        │
-│      │          Active View (full bleed)        │        │
-│      │                                          │        │
-│      │    Call Graph / Disasm / Finding /        │        │
-│      │    Cross-ref Map / Diff                  │        │
-│      │                                          │        │
-│      │                                          │        │
-│      │                                          │        │
-│      └──────────────────────────────────────────┘        │
-│                                                          │
-│  ┌─────────┐                            ┌─────────────┐ │
-│  │ Pinned  │                            │ Chat (⌘/)   │ │
-│  │ Notes   │                            │ collapsed   │ │
-│  └─────────┘                            └─────────────┘ │
+│ ◄ ►  Breadcrumb: project > httpd > parse_header       │
 ├──────────────────────────────────────────────────────────┤
-│  firmware.bin  ▸ libfoo.so  ▸ libbar.so  ▸ httpd  [+]  │
+│                                                          │
+│                  Active Tab (full bleed)                  │
+│                                                          │
+│   Item Detail / Connection Map / Search Results          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+├──────────────────────────────────────────────────────────┤
+│  httpd  ▸ libfoo.so  ▸ httpd.conf  ▸ init.sh  [+]      │
+├──────────────────────────────────────────────────────────┤
+│  MCP: listening  │  12 items  │  3 critical  │  5 high  │
 └──────────────────────────────────────────────────────────┘
 ```
 
 ### Navigation Bar (top)
 
-- **Back / Forward buttons**: navigate your history stack (like a browser)
-- **Breadcrumb**: shows current location in the hierarchy — clickable at every level
-  - Firmware → Binary/SO → Function → Basic Block (optional depth)
-- **Ctrl+K / ⌘K**: command palette — fuzzy search across all functions, binaries, findings, annotations in the entire project
-- Breadcrumb segments are clickable and have dropdown menus showing siblings (other functions in the same binary, other binaries in the firmware)
+- **Back / Forward**: browser-like history stack
+- **Breadcrumb**: project > item > item of interest (clickable at every level)
+- **Ctrl+K / ⌘K**: command palette — fuzzy search across all entities
 
-### Binary Tab Bar (bottom)
+### Tab Bar (bottom of content area)
 
-- Horizontal tabs for each open binary / `.so` — like browser tabs
-- Tabs show the binary name and an indicator for number of findings
-- Right-click tab: close, close others, show in firmware tree
+- One tab per open item
+- Tabs show item name and a badge for number of items of interest
+- Right-click: close, close others
 - Drag to reorder
-- `[+]` button or Ctrl+O to open another binary from the firmware
-- Tabs persist across sessions
+- `[+]` or Ctrl+O to open another item
 
-### Active View (center)
+### Status Bar
 
-Full-bleed content area. The active view is one of:
+- MCP server status
+- Project stats (item count, severity breakdown)
 
-| View                    | Purpose                                                                 | Enter via                                  |
-| ----------------------- | ----------------------------------------------------------------------- | ------------------------------------------ |
-| **Call Graph**          | Interactive graph for current binary or cross-binary                    | Click function, Ctrl+G                     |
-| **Function Detail**     | Decompiled/disasm view + annotations for a single function              | Double-click graph node, search            |
-| **Finding Editor**      | Document a vulnerability                                                | Ctrl+N, or from context menu               |
-| **Cross-Reference Map** | Where is this function/symbol used across all binaries?                 | Right-click → "Find xrefs across firmware" |
-| **Firmware Overview**   | Grid/tree of all binaries, their shared symbols, attack surface summary | Home key or breadcrumb root click          |
-| **Diff View**           | Compare two functions or two versions of a binary                       | From command palette                       |
+## Views
 
-Views **stack** — opening a function detail from a call graph pushes onto the history. Back button returns to the graph at the same scroll/zoom position.
+### Project Overview
 
-### Floating Elements
+Home view when no item tab is focused.
 
-These appear on demand and can be dismissed or pinned:
+- List/grid of all items in the project
+- Grouped by item_type or flat list (toggle)
+- Color-coded by analysis_status (untouched, in_progress, reviewed)
+- Quick stats per item (note count, ioi count, connection count)
+- Tag filter sidebar
 
-- **Chat overlay** (⌘/ or Ctrl+/): slides in from the right edge, 40% width. Can be pinned to stay open. Transparent to the view underneath when unpinned.
-- **Pinned notes**: small floating card (bottom-left) showing your scratchpad for the current research session. Stays visible across view changes.
-- **Quick annotations**: press `a` on any selected node/function to pop a small inline annotation editor — no context switch needed.
-- **Minimap**: optional floating minimap for large call graphs (toggle with `m`)
+### Item Detail
 
-## Navigation Model
+Main view when an item tab is active. Three sections:
 
-### History Stack
+**Header**: Item name, type, path, architecture, status, tags. Editable inline. Delete button.
 
-Every navigation action pushes to a history stack:
+**Items of Interest** (main area):
 
-```
-firmware overview
-  → opened libfoo.so call graph
-    → clicked parse_header node → function detail
-      → followed xref to libbar.so:validate_input
-        → back → back → back to firmware overview
-```
+- List of all items of interest for this item
+- Each shows title, severity badge, location, description preview, tags
+- Click to expand full description
+- Inline edit and delete
+- "Add" button or `n` key to create new
 
-Ctrl+[ / Ctrl+] (or mouse back/forward) traverse the stack. The stack preserves view state (scroll position, zoom level, selected nodes).
+**Notes** (collapsible section):
 
-### Bookmarks
+- Markdown-rendered notes
+- Each note shows author (human/agent badge), timestamp, tags
+- Inline edit and delete
+- "Add" button or `a` key to create new
 
-- Press `b` to bookmark the current location (binary + function + view)
-- Ctrl+B opens bookmark list
-- Bookmarks can be named and grouped
-- "Interesting functions" is a natural bookmark group that feeds into AI context
+**Connections** (collapsible section):
 
-### Jump-to
+- List of connections from/to this item or its items of interest
+- Each shows: source → target, connection type, description
+- Click a connection to navigate to the other end
+- Delete button on each connection
+- "Connect" button to draw a new connection
 
-- `g` then type: jump to any function by name across all binaries
-- `G` then type: jump to any address
-- `f` then type: jump to any finding
-- These are instant — no modal dialogs, just a floating input that filters as you type
+### Connection Map
 
-## Firmware-Aware Features
+Project-wide view showing all items and their connections as a graph.
 
-### Firmware Tree
+- Items are nodes, connections are edges
+- Edge labels show connection type
+- Nodes colored by analysis_status
+- Node size scaled by ioi count
+- Click an item node to open it as a tab
+- Useful for understanding how components relate across a firmware image
 
-The project models a firmware image as a hierarchy:
+### Tag Manager
 
-```
-Firmware Image
-├── filesystem/
-│   ├── usr/lib/
-│   │   ├── libcrypto.so
-│   │   ├── libfoo.so
-│   │   └── libbar.so
-│   ├── usr/bin/
-│   │   ├── httpd
-│   │   └── cli_manager
-│   └── etc/
-│       └── config.xml
-├── kernel modules/
-│   └── custom_driver.ko
-└── bootloader/
-    └── u-boot.bin
-```
+Accessible from project settings or command palette.
 
-- Accessible from the firmware overview or breadcrumb root
-- Shows shared symbol dependencies between binaries (which `.so` exports are consumed by which binaries)
-- Color-coded by analysis status: untouched, in-progress, reviewed
+- List of all registered tags with name, description, color, and usage count
+- Create new tags
+- Edit tag descriptions and colors
+- Delete tags (removes from all entities)
 
-### Cross-Binary Analysis
+### Search Results
 
-Core feature for firmware RE:
+Full-screen search results view.
 
-- **Shared symbol map**: which binaries import/export the same symbols
-- **Cross-binary call graph**: trace a call path that crosses `.so` boundaries (e.g., `httpd` → `libfoo.so:parse_header` → `libcrypto.so:EVP_DecryptUpdate`)
-- **Cross-binary xrefs**: "where is this function used across the entire firmware?"
-- **Attack surface view**: list all exported functions across all binaries, sorted by reachability from external inputs (network, USB, serial, etc.)
+- Results grouped by entity type (items, notes, items of interest, connections)
+- Each result shows a snippet with the match highlighted
+- Click to navigate to the result in context
+- Filter by entity type, severity, tags
 
-### Binary Comparison
+## Keyboard Shortcuts
 
-- Diff two versions of the same binary (firmware update analysis)
-- Function-level diffing: matched by name/signature, shows added/removed/changed functions
-- Useful for 1-day analysis and patch diffing
+| Key                    | Action                                     |
+| ---------------------- | ------------------------------------------ |
+| `⌘K` / `Ctrl+K`        | Command palette (search everything)        |
+| `n`                    | New item of interest on current item       |
+| `a`                    | New note on current item                   |
+| `c`                    | New connection from current context        |
+| `Tab`                  | Cycle between open tabs                    |
+| `Shift+Tab`            | Cycle backward                             |
+| `Ctrl+[` / `Ctrl+]`    | History back / forward                     |
+| `Esc`                  | Dismiss overlay / go up one level          |
+| `?`                    | Show keyboard shortcut cheatsheet          |
+| `Delete` / `Backspace` | Delete selected entity (with confirmation) |
 
-## Interaction Patterns
+## Real-Time Updates
 
-### Keyboard-First
-
-Every action has a keyboard shortcut. The UI is usable without a mouse.
-
-| Key                 | Action                                       |
-| ------------------- | -------------------------------------------- |
-| `⌘K` / `Ctrl+K`     | Command palette (fuzzy search everything)    |
-| `g`                 | Go to function (by name)                     |
-| `G`                 | Go to address                                |
-| `f`                 | Go to finding                                |
-| `b`                 | Bookmark current location                    |
-| `Ctrl+B`            | Open bookmarks                               |
-| `a`                 | Annotate selected item                       |
-| `n`                 | New finding from current context             |
-| `⌘/` / `Ctrl+/`     | Toggle chat overlay                          |
-| `m`                 | Toggle minimap                               |
-| `Ctrl+[` / `Ctrl+]` | History back / forward                       |
-| `Ctrl+G`            | Open call graph for current binary           |
-| `x`                 | Show cross-references for selected function  |
-| `Tab`               | Cycle between open binary tabs               |
-| `Shift+Tab`         | Cycle backward                               |
-| `Esc`               | Dismiss overlay / deselect / go up one level |
-| `?`                 | Show keyboard shortcut cheatsheet            |
-
-### Context Menus
-
-Right-click on any entity for contextual actions:
-
-- **Function node**: annotate, mark source/sink, trace paths, find xrefs, ask agent, create finding
-- **Binary tab**: close, show in firmware tree, view exports, compare with...
-- **Finding**: change severity/status, link to function, ask agent to elaborate
-
-### Drag Interactions
-
-- Drag a function node onto a finding to link them
-- Drag a binary from firmware tree onto the tab bar to open it
-- Drag to rearrange tabs
-
-## Chat Integration
-
-The chat overlay is contextual — it knows where you are:
-
-- If you're viewing a function: agent sees the function's decompilation, annotations, and position in the call graph
-- If you're on a cross-binary xref view: agent sees the full cross-reference chain
-- If you're on firmware overview: agent sees the attack surface summary
-
-The chat is a **tool for the current moment**, not a separate workspace. Ask "is this function reachable from the network handler?" and the agent answers with references you can click to navigate.
+When an AI agent creates, updates, or deletes entities via MCP, the UI updates immediately via Tauri IPC events.
 
 ## Theming
 
 - Dark mode default
 - Light mode available
-- Syntax highlighting for disassembly and decompiled code (Shiki)
-- Graph node colors consistent across views (red=sink, green=source, yellow=path, blue=annotated)
+- Syntax highlighting for code snippets in notes (Shiki)
