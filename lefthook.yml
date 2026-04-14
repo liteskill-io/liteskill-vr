@@ -1,0 +1,21 @@
+pre-commit:
+  parallel: true
+  commands:
+    typecheck:
+      glob: "src/**/*.{ts,tsx}"
+      run: pnpm typecheck
+    lint:
+      glob: "src/**/*.{ts,tsx}"
+      run: pnpm lint
+    oxlint:
+      glob: "src/**/*.{ts,tsx}"
+      run: pnpm oxlint
+    format-check:
+      glob: "src/**/*.{ts,tsx,css} *.{json,md}"
+      run: pnpm format:check
+    rust-check:
+      glob: "src-tauri/src/**/*.rs"
+      run: cd src-tauri && cargo clippy --all-targets -- -D warnings
+    rust-fmt:
+      glob: "src-tauri/src/**/*.rs"
+      run: cd src-tauri && cargo fmt --check
