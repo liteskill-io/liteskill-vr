@@ -1,3 +1,5 @@
+pub mod db;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Work around WebKitGTK DMA-BUF renderer crashes on Wayland
