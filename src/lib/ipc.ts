@@ -1,16 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 
-import type {
-  ItemSummary,
-  ItemDetail,
-  Tag,
-  ConnectionType,
-  Project,
-} from "./types";
-
-export async function getProject(): Promise<Project> {
-  return invoke("get_project");
-}
+import type { ItemSummary, ItemDetail, Tag, ConnectionType } from "./types";
 
 export async function listItems(): Promise<ItemSummary[]> {
   return invoke("list_items");

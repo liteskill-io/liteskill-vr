@@ -26,7 +26,11 @@
     "knip": "knip",
     "check": "pnpm typecheck && pnpm lint && pnpm oxlint && pnpm format:check && pnpm knip && pnpm test",
     "check:rust": "cd src-tauri && cargo clippy --all-targets && cargo fmt --check && cargo deny check",
-    "check:all": "pnpm check && pnpm check:rust"
+    "check:all": "pnpm check && pnpm check:rust",
+    "version:sync": "bash scripts/sync-version.sh",
+    "release:patch": "bash scripts/release.sh patch",
+    "release:minor": "bash scripts/release.sh minor",
+    "release:major": "bash scripts/release.sh major"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.2",

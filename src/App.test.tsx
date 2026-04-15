@@ -4,10 +4,8 @@ import { describe, expect, it } from "vitest";
 import App from "./App";
 
 describe("App", () => {
-  it("renders the heading", () => {
+  it("renders the dashboard", () => {
     render(<App />);
-    expect(
-      screen.getByRole("heading", { name: /liteskill vr/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/liteskill/i)).toBeInTheDocument();
   });
 });
