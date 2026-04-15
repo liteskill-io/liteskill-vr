@@ -1,7 +1,10 @@
+pub mod commands;
 pub mod db;
 pub mod mcp;
 
 use std::sync::{Arc, Mutex};
+
+use tauri::Manager;
 
 use db::Database;
 use mcp::server::McpServer;
@@ -15,7 +18,14 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .setup(|_app| {
+        .invoke_handler(tauri::generate_handler![
+            commands::get_project,
+            commands::list_items,
+            commands::get_item,
+            commands::list_tags,
+            commands::list_connection_types,
+        ])
+        .setup(|app| {
             let db_path = std::env::current_dir()
                 .unwrap_or_default()
                 .join("project.lsvr");
@@ -28,8 +38,10 @@ pub fn run() {
             .expect("Failed to open database");
 
             let db = Arc::new(Mutex::new(db));
-            let server = McpServer::from_shared(Arc::clone(&db));
 
+            app.manage(Arc::clone(&db));
+
+            let server = McpServer::from_shared(Arc::clone(&db));
             tauri::async_runtime::spawn(async move {
                 match server.start(MCP_PORT).await {
                     Ok(addr) => eprintln!("MCP server listening on {addr}"),

@@ -29,10 +29,13 @@
     "check:all": "pnpm check && pnpm check:rust"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.2.2",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "tailwindcss": "^4.2.2",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
