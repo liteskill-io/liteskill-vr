@@ -38,3 +38,7 @@ Thumbs.db
 
 # Test coverage
 coverage
+
+# lsvr files
+*.lsvr*
+

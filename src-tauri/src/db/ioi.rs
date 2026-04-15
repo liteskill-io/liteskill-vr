@@ -16,6 +16,7 @@ pub struct NewIoi<'a> {
     pub description: &'a str,
     pub location: Option<&'a str>,
     pub severity: Option<&'a str>,
+    pub status: Option<&'a str>,
     pub author: &'a str,
     pub author_type: &'a str,
     pub tags: &'a [String],
@@ -37,10 +38,11 @@ impl Database {
 
         let id = new_id();
         let ts = now();
+        let status = params.status.unwrap_or("draft");
         self.conn.execute(
-            "INSERT INTO items_of_interest (id, item_id, title, description, location, severity, author, author_type, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)",
-            rusqlite::params![id, params.item_id, params.title, params.description, params.location, params.severity, params.author, params.author_type, ts],
+            "INSERT INTO items_of_interest (id, item_id, title, description, location, severity, status, author, author_type, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)",
+            rusqlite::params![id, params.item_id, params.title, params.description, params.location, params.severity, status, params.author, params.author_type, ts],
         )?;
         self.set_ioi_tags(&id, params.tags)?;
 
@@ -53,6 +55,7 @@ impl Database {
                     description: params.description.to_string(),
                     location: params.location.map(String::from),
                     severity: params.severity.map(String::from),
+                    status: status.to_string(),
                     author: params.author.to_string(),
                     author_type: params.author_type.to_string(),
                     created_at: ts.clone(),
@@ -64,6 +67,7 @@ impl Database {
         ))
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn ioi_update(
         &self,
         id: &str,
@@ -71,6 +75,7 @@ impl Database {
         description: Option<&str>,
         location: Option<Option<&str>>,
         severity: Option<Option<&str>>,
+        status: Option<&str>,
         tags: Option<&[String]>,
     ) -> Result<IoiWithTags> {
         self.get_ioi_by_id(id)?;
@@ -101,6 +106,12 @@ impl Database {
             self.conn.execute(
                 "UPDATE items_of_interest SET severity = ?1, updated_at = ?2 WHERE id = ?3",
                 params![sev, ts, id],
+            )?;
+        }
+        if let Some(status) = status {
+            self.conn.execute(
+                "UPDATE items_of_interest SET status = ?1, updated_at = ?2 WHERE id = ?3",
+                params![status, ts, id],
             )?;
         }
         if let Some(tags) = tags {
@@ -154,7 +165,7 @@ impl Database {
     pub(crate) fn get_ioi_by_id(&self, id: &str) -> Result<ItemOfInterest> {
         self.conn
             .query_row(
-                "SELECT id, item_id, title, description, location, severity, author, author_type, created_at, updated_at
+                "SELECT id, item_id, title, description, location, severity, status, author, author_type, created_at, updated_at
                  FROM items_of_interest WHERE id = ?1",
                 params![id],
                 |row| {
@@ -165,10 +176,11 @@ impl Database {
                         description: row.get(3)?,
                         location: row.get(4)?,
                         severity: row.get(5)?,
-                        author: row.get(6)?,
-                        author_type: row.get(7)?,
-                        created_at: row.get(8)?,
-                        updated_at: row.get(9)?,
+                        status: row.get(6)?,
+                        author: row.get(7)?,
+                        author_type: row.get(8)?,
+                        created_at: row.get(9)?,
+                        updated_at: row.get(10)?,
                     })
                 },
             )
@@ -230,6 +242,7 @@ mod tests {
                 description: "No bounds check",
                 location: Some("0x08041234"),
                 severity: Some("critical"),
+                status: None,
                 author: "claude",
                 author_type: "agent",
                 tags: &["memory-corruption".to_string()],
@@ -250,6 +263,7 @@ mod tests {
             description: "first",
             location: None,
             severity: None,
+            status: None,
             author: "user",
             author_type: "human",
             tags: &[],
@@ -262,6 +276,7 @@ mod tests {
                 description: "second",
                 location: None,
                 severity: None,
+                status: None,
                 author: "user",
                 author_type: "human",
                 tags: &[],
@@ -281,6 +296,7 @@ mod tests {
             description: "first",
             location: Some("0x1234"),
             severity: None,
+            status: None,
             author: "user",
             author_type: "human",
             tags: &[],
@@ -293,6 +309,7 @@ mod tests {
                 description: "second",
                 location: Some("0x1234"),
                 severity: None,
+                status: None,
                 author: "user",
                 author_type: "human",
                 tags: &[],
@@ -312,6 +329,7 @@ mod tests {
                 description: "desc",
                 location: None,
                 severity: None,
+                status: None,
                 author: "user",
                 author_type: "human",
                 tags: &[],
@@ -324,6 +342,7 @@ mod tests {
                 None,
                 None,
                 Some(Some("high")),
+                None,
                 None,
             )
             .unwrap();
@@ -342,6 +361,7 @@ mod tests {
                 description: "desc",
                 location: None,
                 severity: None,
+                status: None,
                 author: "user",
                 author_type: "human",
                 tags: &[],

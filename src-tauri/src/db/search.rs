@@ -33,7 +33,7 @@ impl Database {
         author_type: Option<&str>,
     ) -> Result<Vec<super::models::IoiWithTags>> {
         let mut sql = String::from(
-            "SELECT i.id, i.item_id, i.title, i.description, i.location, i.severity, i.author, i.author_type, i.created_at, i.updated_at
+            "SELECT i.id, i.item_id, i.title, i.description, i.location, i.severity, i.status, i.author, i.author_type, i.created_at, i.updated_at
              FROM items_of_interest i WHERE 1=1",
         );
         let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
@@ -76,10 +76,11 @@ impl Database {
                     description: row.get(3)?,
                     location: row.get(4)?,
                     severity: row.get(5)?,
-                    author: row.get(6)?,
-                    author_type: row.get(7)?,
-                    created_at: row.get(8)?,
-                    updated_at: row.get(9)?,
+                    status: row.get(6)?,
+                    author: row.get(7)?,
+                    author_type: row.get(8)?,
+                    created_at: row.get(9)?,
+                    updated_at: row.get(10)?,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -382,7 +383,7 @@ mod tests {
             .unwrap();
         let item_id = item.item.id;
         db.note_create(
-            &item_id,
+            Some(&item_id),
             "Analysis notes",
             "Found buffer overflow in parse_header",
             "claude",
@@ -396,6 +397,7 @@ mod tests {
             description: "Stack buffer overflow",
             location: Some("0x08041234"),
             severity: Some("critical"),
+            status: None,
             author: "claude",
             author_type: "agent",
             tags: &["memory-corruption".to_string()],

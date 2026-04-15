@@ -49,7 +49,7 @@ pub struct ItemWithTags {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Note {
     pub id: String,
-    pub item_id: String,
+    pub item_id: Option<String>,
     pub title: String,
     pub content: String,
     pub author: String,
@@ -73,6 +73,7 @@ pub struct ItemOfInterest {
     pub description: String,
     pub location: Option<String>,
     pub severity: Option<String>,
+    pub status: String,
     pub author: String,
     pub author_type: String,
     pub created_at: String,

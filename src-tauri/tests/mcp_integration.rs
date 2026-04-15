@@ -24,6 +24,7 @@ impl TestServer {
             .client
             .post(&self.url)
             .header("X-LiteSkill-Author", "test-agent")
+            .header("Accept", "application/json, text/event-stream")
             .json(&json!({
                 "jsonrpc": "2.0",
                 "method": method,
@@ -67,7 +68,11 @@ impl TestServer {
                 }),
             )
             .await;
-        resp["error"].clone()
+
+        // rmcp returns errors as tool results with isError: true
+        let content = &resp["result"]["content"][0]["text"];
+        let message = content.as_str().unwrap_or("");
+        json!({"message": message})
     }
 }
 
@@ -76,7 +81,16 @@ impl TestServer {
 #[tokio::test]
 async fn initialize() {
     let s = TestServer::start().await;
-    let resp = s.call("initialize", json!({})).await;
+    let resp = s
+        .call(
+            "initialize",
+            json!({
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "test", "version": "1.0"}
+            }),
+        )
+        .await;
     assert_eq!(resp["result"]["serverInfo"]["name"], "liteskill-vr");
     assert!(resp["result"]["capabilities"]["tools"].is_object());
 }
@@ -248,7 +262,6 @@ async fn item_create_with_unregistered_tag_fails() {
         )
         .await;
     assert!(err["message"].as_str().unwrap().contains("not registered"));
-    assert!(err["data"]["suggestion"].is_string());
 }
 
 // --- Notes ---

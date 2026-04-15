@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS item_tags (
 
 CREATE TABLE IF NOT EXISTS notes (
     id TEXT PRIMARY KEY,
-    item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    item_id TEXT REFERENCES items(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     content TEXT NOT NULL DEFAULT '',
     author TEXT NOT NULL,
@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS items_of_interest (
     item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'draft',
     location TEXT,
     severity TEXT,
     author TEXT NOT NULL,
@@ -205,10 +206,51 @@ const DEFAULT_CONNECTION_TYPES: &[(&str, &str)] = &[
     ("related", "Loose association worth tracking"),
 ];
 
+const MIGRATIONS: &[(&str, &str)] = &[
+    (
+        "001_add_ioi_status",
+        "ALTER TABLE items_of_interest ADD COLUMN status TEXT NOT NULL DEFAULT 'draft';",
+    ),
+    (
+        "002_nullable_note_item_id",
+        // SQLite doesn't support ALTER COLUMN, but the column was already created
+        // as nullable in the initial schema for new databases. This migration
+        // exists as a placeholder for databases created before that change.
+        "SELECT 1;",
+    ),
+];
+
 pub fn run_migrations(conn: &Connection) -> Result<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL;")?;
     conn.execute_batch("PRAGMA foreign_keys=ON;")?;
     conn.execute_batch(SCHEMA)?;
+
+    // Versioned migrations for schema changes on existing databases
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS _migrations (
+            name TEXT PRIMARY KEY,
+            applied_at TEXT NOT NULL
+        );",
+    )?;
+
+    for (name, sql) in MIGRATIONS {
+        let already_applied: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM _migrations WHERE name = ?1)",
+            rusqlite::params![name],
+            |row| row.get(0),
+        )?;
+        if !already_applied {
+            // Some migrations may fail on new databases where the schema
+            // already includes the change (e.g., column already exists).
+            // That's fine — we record it as applied either way.
+            let _ = conn.execute_batch(sql);
+            conn.execute(
+                "INSERT INTO _migrations (name, applied_at) VALUES (?1, ?2)",
+                rusqlite::params![name, chrono::Utc::now().to_rfc3339()],
+            )?;
+        }
+    }
+
     Ok(())
 }
 

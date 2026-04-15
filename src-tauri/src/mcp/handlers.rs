@@ -471,7 +471,7 @@ fn handle_note_create(db: &Database, params: &Value, author: &str) -> HandlerRes
     };
     let tags = param_tags(params, "tags");
 
-    match db.note_create(item_id, title, content, author, "agent", &tags) {
+    match db.note_create(Some(item_id), title, content, author, "agent", &tags) {
         Ok(note) => HandlerResult::ok(serde_json::to_value(note).unwrap_or_default()),
         Err(e) => db_err_to_handler(e),
     }
@@ -495,7 +495,7 @@ fn handle_note_create_batch(db: &Database, params: &Value, author: &str) -> Hand
         };
         let tags = param_tags(note, "tags");
 
-        match db.note_create(item_id, title, content, author, "agent", &tags) {
+        match db.note_create(Some(item_id), title, content, author, "agent", &tags) {
             Ok(created) => results.push(created),
             Err(e) => {
                 for r in &results {
@@ -576,6 +576,7 @@ fn handle_ioi_create(db: &Database, params: &Value, author: &str) -> HandlerResu
     };
     let location = param_str(params, "location");
     let severity = param_str(params, "severity");
+    let status = param_str(params, "status");
     let tags = param_tags(params, "tags");
 
     match db.ioi_create(&NewIoi {
@@ -584,6 +585,7 @@ fn handle_ioi_create(db: &Database, params: &Value, author: &str) -> HandlerResu
         description,
         location,
         severity,
+        status,
         author,
         author_type: "agent",
         tags: &tags,
@@ -637,6 +639,7 @@ fn handle_ioi_create_batch(db: &Database, params: &Value, author: &str) -> Handl
         };
         let location = param_str(item, "location");
         let severity = param_str(item, "severity");
+        let status = param_str(item, "status");
         let tags = param_tags(item, "tags");
 
         match db.ioi_create(&NewIoi {
@@ -645,6 +648,7 @@ fn handle_ioi_create_batch(db: &Database, params: &Value, author: &str) -> Handl
             description,
             location,
             severity,
+            status,
             author,
             author_type: "agent",
             tags: &tags,
@@ -684,6 +688,7 @@ fn handle_ioi_update(db: &Database, params: &Value) -> HandlerResult {
     let description = param_str(params, "description");
     let location = params.get("location").map(|v| v.as_str());
     let severity = params.get("severity").map(|v| v.as_str());
+    let status = param_str(params, "status");
     let tags = params.get("tags").and_then(Value::as_array).map(|arr| {
         arr.iter()
             .filter_map(Value::as_str)
@@ -691,7 +696,15 @@ fn handle_ioi_update(db: &Database, params: &Value) -> HandlerResult {
             .collect::<Vec<_>>()
     });
 
-    match db.ioi_update(id, title, description, location, severity, tags.as_deref()) {
+    match db.ioi_update(
+        id,
+        title,
+        description,
+        location,
+        severity,
+        status,
+        tags.as_deref(),
+    ) {
         Ok(ioi) => HandlerResult::ok(serde_json::to_value(ioi).unwrap_or_default()),
         Err(e) => db_err_to_handler(e),
     }

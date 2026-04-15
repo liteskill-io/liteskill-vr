@@ -7,18 +7,20 @@ use super::{new_id, now, Database};
 impl Database {
     pub fn note_create(
         &self,
-        item_id: &str,
+        item_id: Option<&str>,
         title: &str,
         content: &str,
         author: &str,
         author_type: &str,
         tags: &[String],
     ) -> Result<NoteWithTags> {
-        self.get_item_by_id(item_id)
-            .map_err(|_| DbError::InvalidReference {
-                entity: "item".to_string(),
-                id: item_id.to_string(),
-            })?;
+        if let Some(item_id) = item_id {
+            self.get_item_by_id(item_id)
+                .map_err(|_| DbError::InvalidReference {
+                    entity: "item".to_string(),
+                    id: item_id.to_string(),
+                })?;
+        }
         self.validate_tags(tags)?;
 
         let id = new_id();
@@ -32,7 +34,7 @@ impl Database {
         Ok(NoteWithTags {
             note: Note {
                 id,
-                item_id: item_id.to_string(),
+                item_id: item_id.map(String::from),
                 title: title.to_string(),
                 content: content.to_string(),
                 author: author.to_string(),
@@ -167,7 +169,7 @@ mod tests {
         let item_id = create_test_item(&db);
         let note = db
             .note_create(
-                &item_id,
+                Some(&item_id),
                 "Analysis",
                 "Found a bug",
                 "user",
@@ -190,7 +192,7 @@ mod tests {
         let db = test_db();
         let item_id = create_test_item(&db);
         let note = db
-            .note_create(&item_id, "test", "content", "user", "human", &[])
+            .note_create(Some(&item_id), "test", "content", "user", "human", &[])
             .unwrap();
         db.note_delete(&note.note.id).unwrap();
         let result = db.get_note_by_id(&note.note.id);
@@ -200,7 +202,7 @@ mod tests {
     #[test]
     fn create_note_for_nonexistent_item_fails() {
         let db = test_db();
-        let result = db.note_create("nonexistent", "test", "content", "user", "human", &[]);
+        let result = db.note_create(Some("nonexistent"), "test", "content", "user", "human", &[]);
         assert!(matches!(result, Err(DbError::InvalidReference { .. })));
     }
 }

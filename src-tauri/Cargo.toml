@@ -26,6 +26,8 @@ chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2"
 axum = "0.8"
 tokio = { version = "1", features = ["rt-multi-thread", "net", "sync"] }
+rmcp = { version = "1.4.0", features = ["transport-streamable-http-server", "server"] }
+http = "1.4.0"
 
 [dev-dependencies]
 tempfile = "3"

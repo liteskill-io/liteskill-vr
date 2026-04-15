@@ -215,6 +215,7 @@ fn ioi_tools() -> Vec<Value> {
                 "description": {"type": "string"},
                 "location": {"type": "string"},
                 "severity": {"type": "string", "enum": ["critical", "high", "medium", "low", "info"]},
+                "status": {"type": "string", "enum": ["draft", "confirmed", "false_positive", "reported", "fixed"]},
                 "tags": {"type": "array", "items": {"type": "string"}}
             }),
             &["item_id", "title", "description"]),
@@ -237,6 +238,7 @@ fn ioi_tools() -> Vec<Value> {
                 "description": {"type": "string"},
                 "location": {"type": "string"},
                 "severity": {"type": "string", "enum": ["critical", "high", "medium", "low", "info"]},
+                "status": {"type": "string", "enum": ["draft", "confirmed", "false_positive", "reported", "fixed"]},
                 "tags": {"type": "array", "items": {"type": "string"}}
             }),
             &["id"]),

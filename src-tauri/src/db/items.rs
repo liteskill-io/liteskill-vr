@@ -275,7 +275,7 @@ impl Database {
 
     fn get_iois_for_item(&self, item_id: &str) -> Result<Vec<IoiWithTags>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, item_id, title, description, location, severity, author, author_type, created_at, updated_at
+            "SELECT id, item_id, title, description, location, severity, status, author, author_type, created_at, updated_at
              FROM items_of_interest WHERE item_id = ?1 ORDER BY created_at",
         )?;
         let iois = stmt
@@ -287,10 +287,11 @@ impl Database {
                     description: row.get(3)?,
                     location: row.get(4)?,
                     severity: row.get(5)?,
-                    author: row.get(6)?,
-                    author_type: row.get(7)?,
-                    created_at: row.get(8)?,
-                    updated_at: row.get(9)?,
+                    status: row.get(6)?,
+                    author: row.get(7)?,
+                    author_type: row.get(8)?,
+                    created_at: row.get(9)?,
+                    updated_at: row.get(10)?,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -410,8 +411,15 @@ mod tests {
     fn delete_item_cascades() {
         let db = test_db();
         let item = db.item_create("httpd", "elf", None, None, "", &[]).unwrap();
-        db.note_create(&item.item.id, "test note", "content", "human", "human", &[])
-            .unwrap();
+        db.note_create(
+            Some(&item.item.id),
+            "test note",
+            "content",
+            "human",
+            "human",
+            &[],
+        )
+        .unwrap();
         db.item_delete(&item.item.id).unwrap();
         let result = db.item_get(&item.item.id);
         assert!(matches!(result, Err(DbError::NotFound { .. })));
