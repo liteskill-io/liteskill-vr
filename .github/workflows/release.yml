@@ -20,12 +20,16 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-22.04
+            bundles: deb,rpm
           - target: x86_64-apple-darwin
             os: macos-latest
+            bundles: app
           - target: aarch64-apple-darwin
             os: macos-latest
+            bundles: app
           - target: x86_64-pc-windows-msvc
             os: windows-latest
+            bundles: msi,nsis
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -61,31 +65,42 @@ jobs:
           releaseName: "LiteSkill VR ${{ github.ref_name }}"
           releaseDraft: true
           prerelease: false
-          args: --target ${{ matrix.target }}
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
       - name: Collect artifacts
         shell: bash
         run: |
           mkdir -p release-artifacts
-          TAG="${{ github.ref_name }}"
           TARGET="${{ matrix.target }}"
+          BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle"
 
-          if [[ "${{ runner.os }}" == "Linux" ]]; then
-            find src-tauri/target/${TARGET}/release/bundle -type f \( -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) -exec cp {} release-artifacts/ \; 2>/dev/null || true
-          elif [[ "${{ runner.os }}" == "macOS" ]]; then
-            find src-tauri/target/${TARGET}/release/bundle -type f \( -name "*.dmg" -o -name "*.app.tar.gz" \) -exec cp {} release-artifacts/ \; 2>/dev/null || true
-          elif [[ "${{ runner.os }}" == "Windows" ]]; then
-            find src-tauri/target/${TARGET}/release/bundle -type f \( -name "*.msi" -o -name "*.exe" -o -name "*.nsis" \) -exec cp {} release-artifacts/ \; 2>/dev/null || true
+          find "${BUNDLE_DIR}" -type f \( \
+            -name "*.deb" -o -name "*.rpm" -o \
+            -name "*.msi" -o -name "*.exe" -o \
+            -name "*.dmg" -o -name "*.app.tar.gz" \
+          \) -exec cp {} release-artifacts/ \; 2>/dev/null || true
+
+          # For macOS .app, create a tar.gz
+          if [[ -d "${BUNDLE_DIR}/macos" ]]; then
+            for app in "${BUNDLE_DIR}"/macos/*.app; do
+              [ -d "$app" ] || continue
+              tar -czf "release-artifacts/$(basename "$app" .app)-${TARGET}.app.tar.gz" -C "$(dirname "$app")" "$(basename "$app")"
+            done
           fi
 
           # Rename artifacts to include target triple
           for f in release-artifacts/*; do
             [ -f "$f" ] || continue
             base=$(basename "$f")
-            ext="${base##*.}"
-            name="${base%.*}"
+            # Skip if already has target in name
+            if [[ "$base" == *"${TARGET}"* ]]; then continue; fi
+            ext="${base#*.}"
+            name="${base%%.*}"
             mv "$f" "release-artifacts/${name}-${TARGET}.${ext}"
           done
+
+          echo "=== Artifacts ==="
+          ls -la release-artifacts/ || echo "No artifacts"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -108,17 +123,14 @@ jobs:
           merge-multiple: true
 
       - name: Generate SHA256 manifest
-        shell: bash
         run: |
           cd all-artifacts
-          sha256sum * > SHA256SUMS.txt 2>/dev/null || echo "No artifacts found" > SHA256SUMS.txt
+          sha256sum * 2>/dev/null | tee SHA256SUMS.txt
           echo "=== SHA256SUMS ==="
           cat SHA256SUMS.txt
 
-      - name: Upload manifest to release
+      - name: Upload manifest and artifacts to release
         uses: softprops/action-gh-release@v2
         with:
           draft: true
-          files: |
-            all-artifacts/*
-            all-artifacts/SHA256SUMS.txt
+          files: all-artifacts/*
