@@ -5,7 +5,11 @@
 <h1 align="center">LiteSkill VR</h1>
 
 <p align="center">
-  Desktop application for methodical vulnerability research documentation. Built with Tauri v2, React, and TypeScript.
+  <a href="https://liteskill.io">liteskill.io</a>
+</p>
+
+<p align="center">
+  Desktop application with MCP server for methodical, structured vulnerability research documentation. Built with Tauri v2, React, and TypeScript.
 </p>
 
 <p align="center">
