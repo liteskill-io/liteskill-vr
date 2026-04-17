@@ -18,6 +18,28 @@
 
 See [spec/](spec/) for detailed design documents.
 
+## Installation
+
+Pre-built packages for Linux, macOS, and Windows are attached to every
+[release](https://github.com/liteskill-io/liteskill-vr/releases/latest).
+
+| Platform       | Download                                                                             |
+| -------------- | ------------------------------------------------------------------------------------ |
+| Linux (Debian) | `liteskill-vr_<version>_amd64.deb`                                                   |
+| Linux (RPM)    | `liteskill-vr-<version>-1.x86_64.rpm`                                                |
+| Linux (any)    | `liteskill-vr_<version>_amd64.AppImage`                                              |
+| macOS          | `liteskill-vr-x86_64-apple-darwin.app.tar.gz` or `…-aarch64-apple-darwin.app.tar.gz` |
+| Windows        | `liteskill-vr_<version>_x64-setup.exe` (NSIS) or `…_x64_en-US.msi`                   |
+
+The Linux `.deb` and `.rpm` packages also install the standalone headless MCP
+server at `/usr/bin/liteskillvr-mcp` alongside the desktop app.
+
+For headless environments (CI, servers, SSH sessions) the standalone
+`liteskillvr-mcp-headless-<target-triple>` binaries are available as separate
+release assets — see [Headless MCP server](#headless-mcp-server) below.
+
+Each release also includes a `SHA256SUMS.txt` for verifying downloads.
+
 ## Development
 
 ```bash
@@ -31,7 +53,7 @@ pnpm tauri dev
 | -------------------- | ------------------------------------------------------------ |
 | `pnpm dev`           | Start Vite dev server                                        |
 | `pnpm tauri dev`     | Start Tauri dev mode                                         |
-| `pnpm check`         | Run all checks (typecheck, lint, oxlint, format, knip, test) |
+| `pnpm check`         | Run all checks (typecheck, lint, format, knip, test)         |
 | `pnpm check:rust`    | Run Rust checks (clippy, fmt)                                |
 | `pnpm check:all`     | Run both TS and Rust checks                                  |
 | `pnpm test`          | Run unit tests                                               |
