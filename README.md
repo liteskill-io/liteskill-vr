@@ -1,6 +1,12 @@
-# LiteSkill VR
+<p align="center">
+  <img src="src/assets/liteskill_vr_app_icon.svg" alt="LiteSkill VR" width="128" height="128" />
+</p>
 
-Desktop application for methodical vulnerability research documentation. Built with Tauri v2, React, and TypeScript.
+<h1 align="center">LiteSkill VR</h1>
+
+<p align="center">
+  Desktop application for methodical vulnerability research documentation. Built with Tauri v2, React, and TypeScript.
+</p>
 
 See [spec/](spec/) for detailed design documents.
 
@@ -33,6 +39,38 @@ APPIMAGE_EXTRACT_AND_RUN=1 NO_STRIP=1 pnpm tauri build
 # Binary only (no .deb/.rpm/.AppImage bundles)
 pnpm tauri build --no-bundle
 ```
+
+## Headless MCP server
+
+A second binary, `liteskillvr-mcp`, runs just the MCP interface against a
+`.lsvr` project file without the GUI or any Tauri system dependencies. It
+supports both HTTP and stdio transports.
+
+Pre-built binaries for Linux, macOS (x86_64 and aarch64), and Windows ship
+with each [release](../../releases) as `liteskillvr-mcp-headless-<target-triple>[.exe]`.
+The Linux `.deb` / `.rpm` packages also install it to `/usr/bin/liteskillvr-mcp`
+alongside the desktop app.
+
+To build from source:
+
+```bash
+# No GUI deps needed
+cd src-tauri
+cargo build --release --bin liteskillvr-mcp --no-default-features
+
+# HTTP transport (default) — agents connect to http://127.0.0.1:<port>/mcp
+./target/release/liteskillvr-mcp path/to/project.lsvr
+./target/release/liteskillvr-mcp --port 27182 path/to/project.lsvr
+
+# stdio transport — agents spawn the binary and talk JSON-RPC over stdin/stdout
+./target/release/liteskillvr-mcp --stdio path/to/project.lsvr
+
+# Create the project file if it doesn't exist
+./target/release/liteskillvr-mcp --init path/to/project.lsvr
+```
+
+Useful on headless machines (CI, servers) where WebKitGTK isn't available, and
+for MCP clients that prefer to spawn the server as a subprocess.
 
 ## Prerequisites
 

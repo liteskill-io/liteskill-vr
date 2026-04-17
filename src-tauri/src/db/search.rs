@@ -4,7 +4,7 @@ use rusqlite::params;
 
 use super::error::{DbError, Result};
 use super::models::SearchResult;
-use super::Database;
+use super::{parse_tag_list, Database, TAG_SEP};
 
 impl Database {
     pub fn search(&self, query: &str, entity_type: Option<&str>) -> Result<Vec<SearchResult>> {
@@ -32,9 +32,14 @@ impl Database {
         tags: Option<&[String]>,
         author_type: Option<&str>,
     ) -> Result<Vec<super::models::IoiWithTags>> {
-        let mut sql = String::from(
-            "SELECT i.id, i.item_id, i.title, i.description, i.location, i.severity, i.status, i.author, i.author_type, i.created_at, i.updated_at
+        let mut sql = format!(
+            "SELECT i.id, i.item_id, i.title, i.description, i.location, i.severity,
+                    i.status, i.author, i.author_type, i.created_at, i.updated_at,
+                    (SELECT GROUP_CONCAT(tag_name, char({sep})) FROM
+                        (SELECT tag_name FROM ioi_tags WHERE ioi_id = i.id ORDER BY tag_name)
+                    ) AS tag_list
              FROM items_of_interest i WHERE 1=1",
+            sep = TAG_SEP as u32,
         );
         let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
@@ -69,28 +74,25 @@ impl Database {
         let mut stmt = self.conn.prepare(&sql)?;
         let iois = stmt
             .query_map(params_ref.as_slice(), |row| {
-                Ok(super::models::ItemOfInterest {
-                    id: row.get(0)?,
-                    item_id: row.get(1)?,
-                    title: row.get(2)?,
-                    description: row.get(3)?,
-                    location: row.get(4)?,
-                    severity: row.get(5)?,
-                    status: row.get(6)?,
-                    author: row.get(7)?,
-                    author_type: row.get(8)?,
-                    created_at: row.get(9)?,
-                    updated_at: row.get(10)?,
+                Ok(super::models::IoiWithTags {
+                    ioi: super::models::ItemOfInterest {
+                        id: row.get(0)?,
+                        item_id: row.get(1)?,
+                        title: row.get(2)?,
+                        description: row.get(3)?,
+                        location: row.get(4)?,
+                        severity: row.get(5)?,
+                        status: row.get(6)?,
+                        author: row.get(7)?,
+                        author_type: row.get(8)?,
+                        created_at: row.get(9)?,
+                        updated_at: row.get(10)?,
+                    },
+                    tags: parse_tag_list(row.get(11)?),
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
-
-        let mut result = Vec::with_capacity(iois.len());
-        for ioi in iois {
-            let tags = self.get_ioi_tags(&ioi.id)?;
-            result.push(super::models::IoiWithTags { ioi, tags });
-        }
-        Ok(result)
+        Ok(iois)
     }
 
     pub fn filter_notes(
@@ -99,9 +101,14 @@ impl Database {
         tags: Option<&[String]>,
         author_type: Option<&str>,
     ) -> Result<Vec<super::models::NoteWithTags>> {
-        let mut sql = String::from(
-            "SELECT n.id, n.item_id, n.title, n.content, n.author, n.author_type, n.created_at, n.updated_at
+        let mut sql = format!(
+            "SELECT n.id, n.item_id, n.title, n.content, n.author, n.author_type,
+                    n.created_at, n.updated_at,
+                    (SELECT GROUP_CONCAT(tag_name, char({sep})) FROM
+                        (SELECT tag_name FROM note_tags WHERE note_id = n.id ORDER BY tag_name)
+                    ) AS tag_list
              FROM notes n WHERE 1=1",
+            sep = TAG_SEP as u32,
         );
         let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
@@ -132,25 +139,22 @@ impl Database {
         let mut stmt = self.conn.prepare(&sql)?;
         let notes = stmt
             .query_map(params_ref.as_slice(), |row| {
-                Ok(super::models::Note {
-                    id: row.get(0)?,
-                    item_id: row.get(1)?,
-                    title: row.get(2)?,
-                    content: row.get(3)?,
-                    author: row.get(4)?,
-                    author_type: row.get(5)?,
-                    created_at: row.get(6)?,
-                    updated_at: row.get(7)?,
+                Ok(super::models::NoteWithTags {
+                    note: super::models::Note {
+                        id: row.get(0)?,
+                        item_id: row.get(1)?,
+                        title: row.get(2)?,
+                        content: row.get(3)?,
+                        author: row.get(4)?,
+                        author_type: row.get(5)?,
+                        created_at: row.get(6)?,
+                        updated_at: row.get(7)?,
+                    },
+                    tags: parse_tag_list(row.get(8)?),
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
-
-        let mut result = Vec::with_capacity(notes.len());
-        for note in notes {
-            let tags = self.get_note_tags(&note.id)?;
-            result.push(super::models::NoteWithTags { note, tags });
-        }
-        Ok(result)
+        Ok(notes)
     }
 
     pub fn filter_connections(
@@ -209,20 +213,16 @@ impl Database {
         }
 
         let mut total = 0u64;
-        let tables: &[(&str, &str)] = match entity_type {
-            Some("note") => &[("notes", "created_at")],
-            Some("item_of_interest") => &[("items_of_interest", "created_at")],
-            Some("connection") => &[("connections", "created_at")],
-            Some("item") => &[("items", "created_at")],
-            None => &[
-                ("connections", "created_at"),
-                ("items_of_interest", "created_at"),
-                ("notes", "created_at"),
-            ],
+        let tables: &[&str] = match entity_type {
+            Some("note") => &["notes"],
+            Some("item_of_interest") => &["items_of_interest"],
+            Some("connection") => &["connections"],
+            Some("item") => &["items"],
+            None => &["connections", "items_of_interest", "notes"],
             Some(_) => return Ok(0),
         };
 
-        for (table, _ts_col) in tables {
+        for table in tables {
             let mut sql = format!("DELETE FROM {table} WHERE 1=1");
             let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
@@ -247,104 +247,69 @@ impl Database {
 
     fn search_items(&self, query: &str) -> Result<Vec<SearchResult>> {
         let mut stmt = self.conn.prepare(
-            "SELECT f.id, snippet(fts_items, 2, '<b>', '</b>', '...', 32)
-             FROM fts_items f WHERE fts_items MATCH ?1",
+            "SELECT f.id, i.name, snippet(fts_items, 2, '<b>', '</b>', '...', 32)
+             FROM fts_items f JOIN items i ON i.id = f.id
+             WHERE fts_items MATCH ?1",
         )?;
         let results = stmt
             .query_map(params![query], |row| {
-                let id: String = row.get(0)?;
-                let snippet: String = row.get(1)?;
                 Ok(SearchResult {
                     entity_type: "item".to_string(),
-                    entity_id: id,
+                    entity_id: row.get(0)?,
                     parent_item_id: None,
                     parent_item_name: None,
-                    title: String::new(),
-                    snippet,
+                    title: row.get(1)?,
+                    snippet: row.get(2)?,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
-
-        let mut enriched = Vec::with_capacity(results.len());
-        for mut r in results {
-            if let Ok(item) = self.get_item_by_id(&r.entity_id) {
-                r.title = item.name;
-            }
-            enriched.push(r);
-        }
-        Ok(enriched)
+        Ok(results)
     }
 
     fn search_notes(&self, query: &str) -> Result<Vec<SearchResult>> {
         let mut stmt = self.conn.prepare(
-            "SELECT f.id, f.item_id, snippet(fts_notes, 3, '<b>', '</b>', '...', 32)
-             FROM fts_notes f WHERE fts_notes MATCH ?1",
+            "SELECT f.id, f.item_id, n.title, i.name, snippet(fts_notes, 3, '<b>', '</b>', '...', 32)
+             FROM fts_notes f
+             JOIN notes n ON n.id = f.id
+             LEFT JOIN items i ON i.id = f.item_id
+             WHERE fts_notes MATCH ?1",
         )?;
         let results = stmt
             .query_map(params![query], |row| {
-                let id: String = row.get(0)?;
-                let item_id: String = row.get(1)?;
-                let snippet: String = row.get(2)?;
                 Ok(SearchResult {
                     entity_type: "note".to_string(),
-                    entity_id: id,
-                    parent_item_id: Some(item_id),
-                    parent_item_name: None,
-                    title: String::new(),
-                    snippet,
+                    entity_id: row.get(0)?,
+                    parent_item_id: row.get(1)?,
+                    parent_item_name: row.get(3)?,
+                    title: row.get(2)?,
+                    snippet: row.get(4)?,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
-
-        let mut enriched = Vec::with_capacity(results.len());
-        for mut r in results {
-            if let Ok(note) = self.get_note_by_id(&r.entity_id) {
-                r.title = note.title;
-            }
-            if let Some(ref item_id) = r.parent_item_id {
-                if let Ok(item) = self.get_item_by_id(item_id) {
-                    r.parent_item_name = Some(item.name);
-                }
-            }
-            enriched.push(r);
-        }
-        Ok(enriched)
+        Ok(results)
     }
 
     fn search_iois(&self, query: &str) -> Result<Vec<SearchResult>> {
         let mut stmt = self.conn.prepare(
-            "SELECT f.id, f.item_id, snippet(fts_ioi, 3, '<b>', '</b>', '...', 32)
-             FROM fts_ioi f WHERE fts_ioi MATCH ?1",
+            "SELECT f.id, f.item_id, o.title, i.name, snippet(fts_ioi, 3, '<b>', '</b>', '...', 32)
+             FROM fts_ioi f
+             JOIN items_of_interest o ON o.id = f.id
+             JOIN items i ON i.id = f.item_id
+             WHERE fts_ioi MATCH ?1",
         )?;
         let results = stmt
             .query_map(params![query], |row| {
-                let id: String = row.get(0)?;
-                let item_id: String = row.get(1)?;
-                let snippet: String = row.get(2)?;
                 Ok(SearchResult {
                     entity_type: "item_of_interest".to_string(),
-                    entity_id: id,
-                    parent_item_id: Some(item_id),
-                    parent_item_name: None,
-                    title: String::new(),
-                    snippet,
+                    entity_id: row.get(0)?,
+                    parent_item_id: row.get(1)?,
+                    parent_item_name: row.get(3)?,
+                    title: row.get(2)?,
+                    snippet: row.get(4)?,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
-
-        let mut enriched = Vec::with_capacity(results.len());
-        for mut r in results {
-            if let Ok(ioi) = self.get_ioi_by_id(&r.entity_id) {
-                r.title = ioi.title;
-            }
-            if let Some(ref item_id) = r.parent_item_id {
-                if let Ok(item) = self.get_item_by_id(item_id) {
-                    r.parent_item_name = Some(item.name);
-                }
-            }
-            enriched.push(r);
-        }
-        Ok(enriched)
+        Ok(results)
     }
 
     fn search_connections_fts(&self, query: &str) -> Result<Vec<SearchResult>> {

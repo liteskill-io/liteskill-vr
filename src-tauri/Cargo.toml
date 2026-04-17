@@ -7,17 +7,31 @@ authors = []
 edition = "2021"
 rust-version = "1.77"
 publish = false
+default-run = "liteskill-vr"
+
+[features]
+default = ["gui"]
+gui = ["dep:tauri", "dep:tauri-plugin-opener", "dep:tauri-build"]
 
 [lib]
 name = "liteskill_vr_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[[bin]]
+name = "liteskill-vr"
+path = "src/main.rs"
+required-features = ["gui"]
+
+[[bin]]
+name = "liteskillvr-mcp"
+path = "src/bin/mcp.rs"
+
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2", features = [], optional = true }
 
 [dependencies]
-tauri = { version = "2", features = [] }
-tauri-plugin-opener = "2"
+tauri = { version = "2", features = [], optional = true }
+tauri-plugin-opener = { version = "2", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.35", features = ["bundled"] }
@@ -25,8 +39,8 @@ uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2"
 axum = "0.8"
-tokio = { version = "1", features = ["rt-multi-thread", "net", "sync"] }
-rmcp = { version = "1.4.0", features = ["transport-streamable-http-server", "server"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "signal", "macros"] }
+rmcp = { version = "1.4.0", features = ["transport-streamable-http-server", "transport-io", "server"] }
 http = "1.4.0"
 
 [dev-dependencies]

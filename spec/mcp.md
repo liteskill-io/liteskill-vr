@@ -28,6 +28,39 @@ HTTP is the primary transport because:
 - Multiple agents can connect simultaneously (Claude Code and Codex at the same time)
 - No process lifecycle coupling between the agent and the app
 
+### Headless binary
+
+For environments without a GUI (CI, servers, SSH sessions, MCP clients that
+prefer subprocesses) the same MCP interface is available as a standalone
+`liteskillvr-mcp` binary. It opens a `.lsvr` file directly and serves over
+HTTP or stdio:
+
+```
+liteskillvr-mcp path/to/project.lsvr                 # HTTP on 127.0.0.1:27182
+liteskillvr-mcp --port 3000 path/to/project.lsvr     # HTTP on custom port
+liteskillvr-mcp --stdio path/to/project.lsvr         # stdio transport
+```
+
+Stdio is useful for MCP clients that prefer to launch the server as a
+subprocess and speak JSON-RPC over pipes. In this mode the author header
+isn't available, so all writes are attributed to `stdio-agent`.
+
+Claude Code stdio config:
+
+```json
+{
+  "mcpServers": {
+    "liteskill": {
+      "command": "liteskillvr-mcp",
+      "args": ["--stdio", "/path/to/project.lsvr"]
+    }
+  }
+}
+```
+
+The headless binary uses the same tool surface as the embedded server — the
+tables below apply identically.
+
 ### Author Identity
 
 Each agent identifies itself via a custom header on every HTTP request:

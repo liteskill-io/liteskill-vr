@@ -32,6 +32,12 @@ The app hosts an MCP server on localhost so AI agents like Claude Code or Codex 
 6. Researcher reviews, edits, and annotates in the UI.
 7. Next session: Claude calls `changes_since` to catch up, then continues where the last session left off.
 
+On headless machines (CI, servers, remote boxes) the same MCP interface is
+available as a standalone `liteskillvr-mcp` binary that runs directly against a
+`.lsvr` file with no GUI, WebKitGTK, or Tauri dependencies. See
+[architecture.md](architecture.md#headless-mcp-binary) and
+[mcp.md](mcp.md#headless-binary).
+
 ## Target Users
 
 - Security researchers performing manual vulnerability analysis

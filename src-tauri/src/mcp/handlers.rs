@@ -70,13 +70,13 @@ fn db_err(e: DbError) -> String {
 fn run_batch<T, C, D>(items: &[Value], mut create: C, delete: D) -> HandlerResult
 where
     T: Serialize,
-    C: FnMut(usize, &Value) -> Result<(String, T), String>,
+    C: FnMut(&Value) -> Result<(String, T), String>,
     D: Fn(&str),
 {
     let mut results: Vec<T> = Vec::with_capacity(items.len());
     let mut created_ids: Vec<String> = Vec::with_capacity(items.len());
     for (i, item) in items.iter().enumerate() {
-        match create(i, item) {
+        match create(item) {
             Ok((id, value)) => {
                 created_ids.push(id);
                 results.push(value);
@@ -282,7 +282,7 @@ fn handle_item_create_batch(db: &Database, params: &Value) -> HandlerResult {
 
     run_batch(
         items,
-        |_, item| {
+        |item| {
             let name = param_str(item, "name").ok_or_else(|| "missing 'name'".to_string())?;
             let item_type =
                 param_str(item, "item_type").ok_or_else(|| "missing 'item_type'".to_string())?;
@@ -341,7 +341,7 @@ fn handle_note_create_batch(db: &Database, params: &Value, author: &str) -> Hand
 
     run_batch(
         notes,
-        |_, note| {
+        |note| {
             let item_id =
                 param_str(note, "item_id").ok_or_else(|| "missing 'item_id'".to_string())?;
             let title = param_str(note, "title").ok_or_else(|| "missing 'title'".to_string())?;
@@ -413,7 +413,7 @@ fn handle_ioi_create_batch(db: &Database, params: &Value, author: &str) -> Handl
 
     run_batch(
         items,
-        |_, item| {
+        |item| {
             let title = param_str(item, "title").ok_or_else(|| "missing 'title'".to_string())?;
             let description = param_str(item, "description")
                 .ok_or_else(|| "missing 'description'".to_string())?;
@@ -474,7 +474,7 @@ fn handle_connection_create_batch(db: &Database, params: &Value, author: &str) -
 
     run_batch(
         connections,
-        |_, item| {
+        |item| {
             let p = parse_new_connection(item, author)?;
             let created = db.connection_create(&p).map_err(db_err)?;
             Ok((created.id.clone(), created))

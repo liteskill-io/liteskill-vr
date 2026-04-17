@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="96" y="96" width="832" height="832" rx="160" fill="#0E1420"/>
+  <rect x="96" y="96" width="832" height="832" rx="160" stroke="#1E2A3D" stroke-width="10"/>
+
+  <!-- dim connected trace -->
+  <g stroke="#355066" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M96 316H350V714H740V928"/>
+    <path d="M350 96V316"/>
+    <path d="M740 714H928"/>
+  </g>
+
+  <!-- bright L -->
+  <g stroke="#F3F7FF" stroke-width="72" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M350 316V714H740"/>
+  </g>
+
+  <!-- nodes -->
+  <circle cx="96" cy="316" r="24" fill="#355066"/>
+  <circle cx="350" cy="96" r="24" fill="#355066"/>
+  <circle cx="928" cy="714" r="24" fill="#355066"/>
+  <circle cx="740" cy="928" r="24" fill="#355066"/>
+
+  <circle cx="350" cy="316" r="34" fill="#F3F7FF"/>
+  <circle cx="350" cy="714" r="34" fill="#F3F7FF"/>
+  <circle cx="740" cy="714" r="34" fill="#F3F7FF"/>
+
+  <circle cx="350" cy="316" r="15" fill="#0E1420"/>
+  <circle cx="350" cy="714" r="15" fill="#0E1420"/>
+  <circle cx="740" cy="714" r="15" fill="#0E1420"/>
+  <circle cx="96" cy="316" r="10" fill="#0E1420"/>
+  <circle cx="350" cy="96" r="10" fill="#0E1420"/>
+  <circle cx="928" cy="714" r="10" fill="#0E1420"/>
+  <circle cx="740" cy="928" r="10" fill="#0E1420"/>
+</svg>

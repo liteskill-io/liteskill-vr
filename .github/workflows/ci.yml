@@ -43,6 +43,9 @@ jobs:
       - name: Clippy
         working-directory: src-tauri
         run: cargo clippy --all-targets
+      - name: Clippy (headless)
+        working-directory: src-tauri
+        run: cargo clippy --all-targets --no-default-features
       - name: Fmt
         working-directory: src-tauri
         run: cargo fmt --check

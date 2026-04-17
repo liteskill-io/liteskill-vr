@@ -36,6 +36,31 @@ impl McpServer {
         self
     }
 
+    /// Serve over stdio (JSON-RPC on stdin/stdout). Intended for MCP clients that
+    /// spawn the server as a subprocess. The author header trick used by HTTP
+    /// isn't available here, so all writes are attributed to `"stdio-agent"`.
+    /// Blocks until the client closes stdin.
+    pub async fn serve_stdio(self) -> Result<(), std::io::Error> {
+        use rmcp::transport::stdio;
+        use rmcp::ServiceExt;
+
+        let handler = LiteSkillHandler {
+            db: self.db,
+            on_change: self.on_change,
+            author_override: Some("stdio-agent".to_string()),
+        };
+
+        let running = handler
+            .serve(stdio())
+            .await
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
+        running
+            .waiting()
+            .await
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
+        Ok(())
+    }
+
     pub async fn start(self, port: u16) -> Result<SocketAddr, std::io::Error> {
         let db = self.db;
         let on_change = self.on_change;
@@ -45,6 +70,7 @@ impl McpServer {
             Ok(LiteSkillHandler {
                 db,
                 on_change: on_change.clone(),
+                author_override: None,
             })
         };
 
@@ -76,14 +102,36 @@ impl McpServer {
 struct LiteSkillHandler {
     db: Arc<Mutex<Database>>,
     on_change: Option<OnChange>,
+    author_override: Option<String>,
 }
 
+// Explicit list so adding a non-CRUD-named mutation (e.g. "archive_item") forces
+// an update here rather than silently failing to notify listeners.
+const MUTATION_TOOLS: &[&str] = &[
+    "tag_create",
+    "tag_delete",
+    "connection_type_create",
+    "connection_type_delete",
+    "item_create",
+    "item_create_batch",
+    "item_update",
+    "item_delete",
+    "note_create",
+    "note_create_batch",
+    "note_update",
+    "note_delete",
+    "ioi_create",
+    "ioi_create_batch",
+    "ioi_update",
+    "ioi_delete",
+    "connection_create",
+    "connection_create_batch",
+    "connection_delete",
+    "bulk_delete",
+];
+
 fn is_mutation(tool_name: &str) -> bool {
-    tool_name.ends_with("_create")
-        || tool_name.ends_with("_create_batch")
-        || tool_name.ends_with("_update")
-        || tool_name.ends_with("_delete")
-        || tool_name == "bulk_delete"
+    MUTATION_TOOLS.contains(&tool_name)
 }
 
 impl rmcp::ServerHandler for LiteSkillHandler {
@@ -138,17 +186,19 @@ impl rmcp::ServerHandler for LiteSkillHandler {
             .arguments
             .map_or_else(|| json!({}), serde_json::Value::Object);
 
-        let author = context
-            .extensions
-            .get::<http::request::Parts>()
-            .and_then(|parts| {
-                parts
-                    .headers
-                    .get("X-LiteSkill-Author")
-                    .and_then(|v| v.to_str().ok())
-                    .map(String::from)
-            })
-            .unwrap_or_else(|| "anonymous-agent".to_string());
+        let author = self.author_override.clone().unwrap_or_else(|| {
+            context
+                .extensions
+                .get::<http::request::Parts>()
+                .and_then(|parts| {
+                    parts
+                        .headers
+                        .get("X-LiteSkill-Author")
+                        .and_then(|v| v.to_str().ok())
+                        .map(String::from)
+                })
+                .unwrap_or_else(|| "anonymous-agent".to_string())
+        });
 
         let db = self.db.lock().unwrap();
         let result = handlers::dispatch(&db, &tool_name, &tool_args, &author);

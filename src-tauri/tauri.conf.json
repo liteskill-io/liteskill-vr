@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "pnpm build && cargo build --release --bin liteskillvr-mcp --no-default-features --manifest-path src-tauri/Cargo.toml",
     "frontendDist": "../dist"
   },
   "app": {
@@ -30,6 +30,18 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/bin/liteskillvr-mcp": "target/release/liteskillvr-mcp"
+        }
+      },
+      "rpm": {
+        "files": {
+          "/usr/bin/liteskillvr-mcp": "target/release/liteskillvr-mcp"
+        }
+      }
+    }
   }
 }

@@ -52,6 +52,33 @@
 - **Project Store**: CRUD + delete for all entities. SQLite database (one `.lsvr` file per project) with FTS5 for full-text search.
 - **MCP Server**: HTTP+SSE server on `127.0.0.1`. Starts automatically when a project is opened. Agents connect over HTTP.
 
+The Rust crate exposes `db` and `mcp` as pure modules — nothing in them depends
+on Tauri — so both the desktop app and the standalone headless binary
+(see below) link against the same code path.
+
+## Headless MCP binary
+
+A second binary target, `liteskillvr-mcp`, runs just the `db` + `mcp` layer
+with no GUI. It supports two transports:
+
+- **HTTP** (default) — same endpoint as the desktop app (`/mcp`), on any port
+- **stdio** — JSON-RPC on stdin/stdout, for MCP clients that spawn the server
+  as a subprocess
+
+```
+liteskillvr-mcp path/to/project.lsvr                 # HTTP on 27182
+liteskillvr-mcp --port 3000 path/to/project.lsvr     # HTTP on custom port
+liteskillvr-mcp --stdio path/to/project.lsvr         # stdio transport
+liteskillvr-mcp --init path/to/project.lsvr          # create if missing
+```
+
+Built with Cargo features: `gui` (default, enables Tauri) gates the desktop
+binary; building with `--no-default-features` produces a truly headless binary
+with no WebKitGTK/Tauri link-time dependencies. Pre-built binaries for Linux,
+macOS (x86_64 + aarch64), and Windows ship with each GitHub release. The Linux
+`.deb` / `.rpm` also install `liteskillvr-mcp` to `/usr/bin/` alongside the
+desktop app.
+
 ## Data Flow
 
 1. User opens LiteSkill VR → opens or creates a `.lsvr` project file → MCP server starts.

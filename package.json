@@ -24,7 +24,7 @@
     "test:e2e": "wdio run ./wdio.conf.ts",
     "knip": "knip",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm knip && pnpm test",
-    "check:rust": "cd src-tauri && cargo clippy --all-targets && cargo fmt --check && cargo deny check",
+    "check:rust": "cd src-tauri && cargo clippy --all-targets && cargo clippy --all-targets --no-default-features && cargo fmt --check && cargo deny check",
     "check:all": "pnpm check && pnpm check:rust",
     "version:sync": "bash scripts/sync-version.sh",
     "release:patch": "bash scripts/release.sh patch",

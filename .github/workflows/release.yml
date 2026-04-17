@@ -56,16 +56,26 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Build only — the manifest job handles the release upload. Do NOT pass
+      # tagName/releaseName here; tauri-action would otherwise create its own
+      # draft and upload with its naming, producing duplicates alongside the
+      # manifest job's upload.
       - name: Build Tauri
         uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "LiteSkill VR ${{ github.ref_name }}"
-          releaseDraft: true
-          prerelease: false
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+      # Build a standalone headless MCP binary for this exact target. Separate
+      # from the beforeBuildCommand build (which is native-arch and gets baked
+      # into the Linux deb/rpm) — this one is distributed as its own asset.
+      - name: Build standalone headless binary
+        shell: bash
+        run: |
+          cargo build --release \
+            --target ${{ matrix.target }} \
+            --bin liteskillvr-mcp \
+            --no-default-features \
+            --manifest-path src-tauri/Cargo.toml
 
       - name: Collect artifacts
         shell: bash
@@ -73,31 +83,37 @@ jobs:
           mkdir -p release-artifacts
           TARGET="${{ matrix.target }}"
           BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle"
+          HEADLESS_DIR="src-tauri/target/${TARGET}/release"
 
+          # .deb/.rpm/.msi/.exe/.dmg already encode arch in their Tauri-default
+          # filenames, so we keep those names as-is.
           find "${BUNDLE_DIR}" -type f \( \
             -name "*.deb" -o -name "*.rpm" -o \
             -name "*.msi" -o -name "*.exe" -o \
-            -name "*.dmg" -o -name "*.app.tar.gz" \
+            -name "*.dmg" \
           \) -exec cp {} release-artifacts/ \; 2>/dev/null || true
 
-          # For macOS .app, create a tar.gz
+          # macOS .app is a directory and Tauri names it "<product>.app" with
+          # no arch suffix, so we tarball it with the target triple to
+          # disambiguate x86_64 vs aarch64 builds.
           if [[ -d "${BUNDLE_DIR}/macos" ]]; then
             for app in "${BUNDLE_DIR}"/macos/*.app; do
               [ -d "$app" ] || continue
-              tar -czf "release-artifacts/$(basename "$app" .app)-${TARGET}.app.tar.gz" -C "$(dirname "$app")" "$(basename "$app")"
+              tar -czf "release-artifacts/$(basename "$app" .app)-${TARGET}.app.tar.gz" \
+                -C "$(dirname "$app")" "$(basename "$app")"
             done
           fi
 
-          # Rename artifacts to include target triple
-          for f in release-artifacts/*; do
-            [ -f "$f" ] || continue
-            base=$(basename "$f")
-            # Skip if already has target in name
-            if [[ "$base" == *"${TARGET}"* ]]; then continue; fi
-            ext="${base#*.}"
-            name="${base%%.*}"
-            mv "$f" "release-artifacts/${name}-${TARGET}.${ext}"
-          done
+          # Standalone headless MCP binary. Asset name spells out "-headless-"
+          # so it's obvious from the release page that this is the GUI-less
+          # variant, not an installer.
+          if [[ -f "${HEADLESS_DIR}/liteskillvr-mcp.exe" ]]; then
+            cp "${HEADLESS_DIR}/liteskillvr-mcp.exe" \
+              "release-artifacts/liteskillvr-mcp-headless-${TARGET}.exe"
+          elif [[ -f "${HEADLESS_DIR}/liteskillvr-mcp" ]]; then
+            cp "${HEADLESS_DIR}/liteskillvr-mcp" \
+              "release-artifacts/liteskillvr-mcp-headless-${TARGET}"
+          fi
 
           echo "=== Artifacts ==="
           ls -la release-artifacts/ || echo "No artifacts"
@@ -129,8 +145,10 @@ jobs:
           echo "=== SHA256SUMS ==="
           cat SHA256SUMS.txt
 
-      - name: Upload manifest and artifacts to release
+      - name: Create draft release
         uses: softprops/action-gh-release@v2
         with:
           draft: true
+          prerelease: false
+          name: "LiteSkill VR ${{ github.ref_name }}"
           files: all-artifacts/*

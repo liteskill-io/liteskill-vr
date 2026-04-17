@@ -6,7 +6,7 @@ use super::error::{DbError, Result};
 use super::models::{
     Connection, IoiWithTags, Item, ItemDetail, ItemSummary, ItemWithTags, NoteWithTags,
 };
-use super::{new_id, now, Database};
+use super::{new_id, now, parse_tag_list, Database, TAG_SEP};
 
 impl Database {
     pub fn item_list(
@@ -15,7 +15,7 @@ impl Database {
         analysis_status: Option<&str>,
         tags: Option<&[String]>,
     ) -> Result<Vec<ItemSummary>> {
-        let mut sql = String::from(
+        let mut sql = format!(
             "SELECT i.id, i.name, i.item_type, i.path, i.architecture, i.description,
                     i.analysis_status, i.created_at, i.updated_at,
                     (SELECT COUNT(*) FROM notes WHERE item_id = i.id) as note_count,
@@ -23,8 +23,12 @@ impl Database {
                     (SELECT COUNT(*) FROM connections WHERE
                         (source_id = i.id AND source_type = 'item') OR
                         (target_id = i.id AND target_type = 'item')
-                    ) as conn_count
+                    ) as conn_count,
+                    (SELECT GROUP_CONCAT(tag_name, char({sep})) FROM
+                        (SELECT tag_name FROM item_tags WHERE item_id = i.id ORDER BY tag_name)
+                    ) as tag_list
              FROM items i WHERE 1=1",
+            sep = TAG_SEP as u32,
         );
         let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
@@ -55,36 +59,28 @@ impl Database {
         let mut stmt = self.conn.prepare(&sql)?;
         let items = stmt
             .query_map(params_ref.as_slice(), |row| {
-                Ok((
-                    Item {
-                        id: row.get(0)?,
-                        name: row.get(1)?,
-                        item_type: row.get(2)?,
-                        path: row.get(3)?,
-                        architecture: row.get(4)?,
-                        description: row.get(5)?,
-                        analysis_status: row.get(6)?,
-                        created_at: row.get(7)?,
-                        updated_at: row.get(8)?,
+                Ok(ItemSummary {
+                    item: ItemWithTags {
+                        item: Item {
+                            id: row.get(0)?,
+                            name: row.get(1)?,
+                            item_type: row.get(2)?,
+                            path: row.get(3)?,
+                            architecture: row.get(4)?,
+                            description: row.get(5)?,
+                            analysis_status: row.get(6)?,
+                            created_at: row.get(7)?,
+                            updated_at: row.get(8)?,
+                        },
+                        tags: parse_tag_list(row.get(12)?),
                     },
-                    row.get::<_, i64>(9)?,
-                    row.get::<_, i64>(10)?,
-                    row.get::<_, i64>(11)?,
-                ))
+                    note_count: row.get(9)?,
+                    ioi_count: row.get(10)?,
+                    connection_count: row.get(11)?,
+                })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
-
-        let mut result = Vec::with_capacity(items.len());
-        for (item, note_count, ioi_count, connection_count) in items {
-            let tags = self.get_item_tags(&item.id)?;
-            result.push(ItemSummary {
-                item: ItemWithTags { item, tags },
-                note_count,
-                ioi_count,
-                connection_count,
-            });
-        }
-        Ok(result)
+        Ok(items)
     }
 
     pub fn item_get(&self, id: &str) -> Result<ItemDetail> {
@@ -232,62 +228,68 @@ impl Database {
     }
 
     fn get_notes_for_item(&self, item_id: &str) -> Result<Vec<NoteWithTags>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, item_id, title, content, author, author_type, created_at, updated_at
-             FROM notes WHERE item_id = ?1 ORDER BY created_at",
-        )?;
+        let sql = format!(
+            "SELECT n.id, n.item_id, n.title, n.content, n.author, n.author_type,
+                    n.created_at, n.updated_at,
+                    (SELECT GROUP_CONCAT(tag_name, char({sep})) FROM
+                        (SELECT tag_name FROM note_tags WHERE note_id = n.id ORDER BY tag_name)
+                    ) AS tag_list
+             FROM notes n WHERE n.item_id = ?1 ORDER BY n.created_at",
+            sep = TAG_SEP as u32,
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
         let notes = stmt
             .query_map(params![item_id], |row| {
-                Ok(super::models::Note {
-                    id: row.get(0)?,
-                    item_id: row.get(1)?,
-                    title: row.get(2)?,
-                    content: row.get(3)?,
-                    author: row.get(4)?,
-                    author_type: row.get(5)?,
-                    created_at: row.get(6)?,
-                    updated_at: row.get(7)?,
+                Ok(NoteWithTags {
+                    note: super::models::Note {
+                        id: row.get(0)?,
+                        item_id: row.get(1)?,
+                        title: row.get(2)?,
+                        content: row.get(3)?,
+                        author: row.get(4)?,
+                        author_type: row.get(5)?,
+                        created_at: row.get(6)?,
+                        updated_at: row.get(7)?,
+                    },
+                    tags: parse_tag_list(row.get(8)?),
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
-
-        let mut result = Vec::with_capacity(notes.len());
-        for note in notes {
-            let tags = self.get_note_tags(&note.id)?;
-            result.push(NoteWithTags { note, tags });
-        }
-        Ok(result)
+        Ok(notes)
     }
 
     fn get_iois_for_item(&self, item_id: &str) -> Result<Vec<IoiWithTags>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, item_id, title, description, location, severity, status, author, author_type, created_at, updated_at
-             FROM items_of_interest WHERE item_id = ?1 ORDER BY created_at",
-        )?;
+        let sql = format!(
+            "SELECT o.id, o.item_id, o.title, o.description, o.location, o.severity,
+                    o.status, o.author, o.author_type, o.created_at, o.updated_at,
+                    (SELECT GROUP_CONCAT(tag_name, char({sep})) FROM
+                        (SELECT tag_name FROM ioi_tags WHERE ioi_id = o.id ORDER BY tag_name)
+                    ) AS tag_list
+             FROM items_of_interest o WHERE o.item_id = ?1 ORDER BY o.created_at",
+            sep = TAG_SEP as u32,
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
         let iois = stmt
             .query_map(params![item_id], |row| {
-                Ok(super::models::ItemOfInterest {
-                    id: row.get(0)?,
-                    item_id: row.get(1)?,
-                    title: row.get(2)?,
-                    description: row.get(3)?,
-                    location: row.get(4)?,
-                    severity: row.get(5)?,
-                    status: row.get(6)?,
-                    author: row.get(7)?,
-                    author_type: row.get(8)?,
-                    created_at: row.get(9)?,
-                    updated_at: row.get(10)?,
+                Ok(IoiWithTags {
+                    ioi: super::models::ItemOfInterest {
+                        id: row.get(0)?,
+                        item_id: row.get(1)?,
+                        title: row.get(2)?,
+                        description: row.get(3)?,
+                        location: row.get(4)?,
+                        severity: row.get(5)?,
+                        status: row.get(6)?,
+                        author: row.get(7)?,
+                        author_type: row.get(8)?,
+                        created_at: row.get(9)?,
+                        updated_at: row.get(10)?,
+                    },
+                    tags: parse_tag_list(row.get(11)?),
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
-
-        let mut result = Vec::with_capacity(iois.len());
-        for ioi in iois {
-            let tags = self.get_ioi_tags(&ioi.id)?;
-            result.push(IoiWithTags { ioi, tags });
-        }
-        Ok(result)
+        Ok(iois)
     }
 
     fn get_connections_for_entity(&self, entity_id: &str) -> Result<Vec<Connection>> {
