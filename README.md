@@ -1,11 +1,15 @@
 <p align="center">
-  <img src="src/assets/liteskill_vr_app_icon.svg" alt="LiteSkill VR" width="128" height="128" />
+  <img src="public/liteskill_vr_app_icon.svg" alt="LiteSkill VR" width="128" height="128" />
 </p>
 
 <h1 align="center">LiteSkill VR</h1>
 
 <p align="center">
   Desktop application for methodical vulnerability research documentation. Built with Tauri v2, React, and TypeScript.
+</p>
+
+<p align="center">
+  <img src="src/assets/dashboard.png" alt="LiteSkill VR dashboard with demo project loaded" />
 </p>
 
 See [spec/](spec/) for detailed design documents.

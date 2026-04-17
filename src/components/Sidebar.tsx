@@ -1,5 +1,3 @@
-import appIconMonoDark from "@/assets/liteskill_vr_app_icon_mono_dark.svg";
-import appIconMonoLight from "@/assets/liteskill_vr_app_icon_mono_light.svg";
 import { useStore } from "@/lib/store";
 
 import type { ItemDetail, ItemSummary } from "@/lib/types";
@@ -58,19 +56,16 @@ export function Sidebar(): React.JSX.Element {
     <div className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-surface">
       {/* Brand */}
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-        <picture>
-          {/* Inverse of the UI for contrast: light icon on dark UI, dark on light. */}
-          <source
-            srcSet={appIconMonoLight}
-            media="(prefers-color-scheme: dark)"
-          />
-          <img
-            src={appIconMonoDark}
-            alt=""
-            aria-hidden="true"
-            className="h-5 w-5 shrink-0 rounded-sm"
-          />
-        </picture>
+        {/* Served from public/ as a real file, not a Vite data URI —
+            data-URI SVGs rasterized oddly in WebKitGTK at small sizes. */}
+        <img
+          src="/liteskill_vr_app_icon_mono_light.svg"
+          alt=""
+          aria-hidden="true"
+          width={24}
+          height={24}
+          className="shrink-0 rounded-sm"
+        />
         <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-text-bright">
           LiteSkill VR
         </span>

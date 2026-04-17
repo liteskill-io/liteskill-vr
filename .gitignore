@@ -42,3 +42,7 @@ coverage
 # lsvr files
 *.lsvr*
 
+# e2e runtime
+e2e/.runtime
+e2e/screenshots
+
