@@ -1,6 +1,6 @@
 [package]
 name = "liteskill-vr"
-version = "0.1.3"
+version = "0.1.4"
 description = "Structured notebook for reverse engineering research"
 license = "Apache-2.0"
 authors = []
