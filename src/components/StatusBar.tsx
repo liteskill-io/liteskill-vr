@@ -4,6 +4,8 @@ export function StatusBar(): React.JSX.Element {
   const items = useStore((s) => s.items);
   const itemDetails = useStore((s) => s.itemDetails);
   const mcpPort = useStore((s) => s.mcpPort);
+  const zoom = useStore((s) => s.zoom);
+  const resetZoom = useStore((s) => s.resetZoom);
 
   let totalIoi = 0;
   let criticalCount = 0;
@@ -31,6 +33,22 @@ export function StatusBar(): React.JSX.Element {
         <span className="text-critical">{criticalCount} critical</span>
       )}
       {highCount > 0 && <span className="text-high">{highCount} high</span>}
+      <span className="ml-auto">
+        {zoom !== 1 ? (
+          <button
+            type="button"
+            onClick={resetZoom}
+            title="Reset zoom (Ctrl+0)"
+            className="text-accent hover:text-text-bright transition-colors"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+        ) : (
+          <span className="text-text-dim/50" title="Ctrl+= / Ctrl+- / Ctrl+0">
+            100%
+          </span>
+        )}
+      </span>
     </div>
   );
 }

@@ -8,7 +8,11 @@ pre-commit:
       glob: "src/**/*.{ts,tsx}"
       run: pnpm lint
     format-check:
-      glob: "src/**/*.{ts,tsx,css} *.{json,md}"
+      # Lefthook's `**/` matcher requires at least one path segment, so root-
+      # level files need their own pattern alongside the nested one.
+      glob:
+        - "*.{ts,tsx,js,mjs,cjs,css,html,json,md,yml,yaml}"
+        - "**/*.{ts,tsx,js,mjs,cjs,css,html,json,md,yml,yaml}"
       run: pnpm format:check
     rust-check:
       glob: "src-tauri/src/**/*.rs"

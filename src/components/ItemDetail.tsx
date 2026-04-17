@@ -6,6 +6,7 @@ export function ItemDetail({ id }: { id: string }): React.JSX.Element {
   const itemDetails = useStore((s) => s.itemDetails);
   const items = useStore((s) => s.items);
   const openTab = useStore((s) => s.openTab);
+  const showConnectionMap = useStore((s) => s.showConnectionMap);
 
   if (!detail) {
     return (
@@ -146,8 +147,17 @@ export function ItemDetail({ id }: { id: string }): React.JSX.Element {
       {/* Connections */}
       {connections.length > 0 && (
         <div>
-          <div className="px-4 py-2 text-[10px] font-semibold tracking-widest text-text-dim uppercase">
-            Connections ({connections.length})
+          <div className="flex items-center justify-between px-4 py-2 text-[10px] font-semibold tracking-widest uppercase">
+            <span className="text-text-dim">
+              Connections ({connections.length})
+            </span>
+            <button
+              type="button"
+              onClick={showConnectionMap}
+              className="text-accent hover:text-text-bright transition-colors"
+            >
+              ⬡ View in map
+            </button>
           </div>
           {connections.map((conn) => {
             const isSource = conn.source_id === id;

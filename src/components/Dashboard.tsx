@@ -21,6 +21,7 @@ export function Dashboard(): React.JSX.Element {
   const items = useStore((s) => s.items);
   const itemDetails = useStore((s) => s.itemDetails);
   const openTab = useStore((s) => s.openTab);
+  const showConnectionMap = useStore((s) => s.showConnectionMap);
   const mcpPort = useStore((s) => s.mcpPort);
 
   const allIois: FlatIoi[] = [];
@@ -97,7 +98,11 @@ export function Dashboard(): React.JSX.Element {
         <StatCard label="Items" value={items.length} />
         <StatCard label="Findings" value={totalIoi} />
         <StatCard label="Notes" value={totalNotes} />
-        <StatCard label="Connections" value={totalConnections} />
+        <StatCard
+          label="Connections"
+          value={totalConnections}
+          onClick={showConnectionMap}
+        />
         <StatCard
           label="Reviewed"
           value={`${String(reviewedCount)}/${String(items.length)}`}
@@ -226,20 +231,34 @@ export function Dashboard(): React.JSX.Element {
 function StatCard({
   label,
   value,
+  onClick,
 }: {
   label: string;
   value: number | string;
+  onClick?: () => void;
 }): React.JSX.Element {
-  return (
-    <div className="bg-surface px-3 py-2.5 text-center">
+  const inner = (
+    <>
       <div className="text-lg font-bold tabular-nums text-text-bright">
         {value}
       </div>
       <div className="text-[9px] font-semibold tracking-widest text-text-dim uppercase">
         {label}
       </div>
-    </div>
+    </>
   );
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="bg-surface px-3 py-2.5 text-center transition-colors hover:bg-surface-hover cursor-pointer"
+      >
+        {inner}
+      </button>
+    );
+  }
+  return <div className="bg-surface px-3 py-2.5 text-center">{inner}</div>;
 }
 
 function ProgressRow({

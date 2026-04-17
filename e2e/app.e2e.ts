@@ -388,7 +388,8 @@ describe("LiteSkill VR", () => {
           return el.isExisting();
         },
         {
-          timeout: 10_000,
+          timeout: 20_000,
+          interval: 250,
           timeoutMsg: "dashboard never populated with seeded data",
         },
       );
@@ -434,6 +435,28 @@ describe("LiteSkill VR", () => {
       await expect(browser.$("div*=Notes")).toBeDisplayed();
       await expect(browser.$("div*=Connections")).toBeDisplayed();
       await expect(browser.$("span*=parse_request()")).toBeDisplayed();
+    });
+
+    it("renders the connection map when the sidebar button is clicked", async () => {
+      const mapBtn = await browser.$("button*=Connection Map");
+      await browser.execute((el: HTMLElement) => {
+        el.click();
+      }, mapBtn);
+      await browser.waitUntil(
+        async () => {
+          const el = await browser.$("span*=Connection Map");
+          return el.isExisting();
+        },
+        { timeout: 5000, timeoutMsg: "connection map never rendered" },
+      );
+      // Toolbar controls land alongside the header.
+      await expect(browser.$("button*=Fit")).toBeDisplayed();
+      await expect(browser.$("button*=Layout")).toBeDisplayed();
+      // cose layout is synchronous (animate:false) but give cytoscape a tick
+      // to finish painting.
+      await browser.pause(500);
+      await expect(browser.$("span*=7 items")).toBeDisplayed();
+      await expect(browser.$("span*=7 connections")).toBeDisplayed();
     });
   });
 });

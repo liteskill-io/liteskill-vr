@@ -18,6 +18,17 @@
 
 See [spec/](spec/) for detailed design documents.
 
+## User Story
+
+```text
+As a cybersecurity researcher using AI, my life is a mess of markdown
+files and hard-to-read chat histories.
+
+I wish there were a standard format I could give to my agents that
+would allow me to easily view status. I also want a single file that
+I can share with others or save for future reference.
+```
+
 ## Installation
 
 Pre-built packages for Linux, macOS, and Windows are attached to every
@@ -49,16 +60,16 @@ pnpm tauri dev
 
 ## Scripts
 
-| Script               | Purpose                                                      |
-| -------------------- | ------------------------------------------------------------ |
-| `pnpm dev`           | Start Vite dev server                                        |
-| `pnpm tauri dev`     | Start Tauri dev mode                                         |
-| `pnpm check`         | Run all checks (typecheck, lint, format, knip, test)         |
-| `pnpm check:rust`    | Run Rust checks (clippy, fmt)                                |
-| `pnpm check:all`     | Run both TS and Rust checks                                  |
-| `pnpm test`          | Run unit tests                                               |
-| `pnpm test:e2e`      | Run E2E tests (requires release build)                       |
-| `pnpm test:coverage` | Run tests with coverage                                      |
+| Script               | Purpose                                              |
+| -------------------- | ---------------------------------------------------- |
+| `pnpm dev`           | Start Vite dev server                                |
+| `pnpm tauri dev`     | Start Tauri dev mode                                 |
+| `pnpm check`         | Run all checks (typecheck, lint, format, knip, test) |
+| `pnpm check:rust`    | Run Rust checks (clippy, fmt)                        |
+| `pnpm check:all`     | Run both TS and Rust checks                          |
+| `pnpm test`          | Run unit tests                                       |
+| `pnpm test:e2e`      | Run E2E tests (requires release build)               |
+| `pnpm test:coverage` | Run tests with coverage                              |
 
 ## Building
 

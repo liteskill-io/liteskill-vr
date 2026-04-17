@@ -45,9 +45,14 @@ function groupBySeverity(
 export function Sidebar(): React.JSX.Element {
   const items = useStore((s) => s.items);
   const activeTab = useStore((s) => s.activeTab);
+  const rootView = useStore((s) => s.rootView);
   const openTab = useStore((s) => s.openTab);
-  const setActiveTab = useStore((s) => s.setActiveTab);
+  const showDashboard = useStore((s) => s.showDashboard);
+  const showConnectionMap = useStore((s) => s.showConnectionMap);
   const itemDetails = useStore((s) => s.itemDetails);
+
+  const onDashboard = activeTab === null && rootView === "dashboard";
+  const onConnections = activeTab === null && rootView === "connections";
 
   const groups = groupBySeverity(items, itemDetails);
   const hasFindings = Object.values(groups).some((g) => g.length > 0);
@@ -71,17 +76,24 @@ export function Sidebar(): React.JSX.Element {
         </span>
       </div>
 
-      {/* Dashboard link */}
+      {/* Root views: Dashboard and Connection Map */}
       <button
         type="button"
-        onClick={(): void => {
-          setActiveTab(null);
-        }}
-        className={`w-full border-b border-border px-3 py-2.5 text-left text-[10px] font-bold tracking-[0.2em] uppercase transition-colors hover:bg-surface-hover ${
-          activeTab === null ? "text-accent" : "text-text-dim"
+        onClick={showDashboard}
+        className={`w-full px-3 py-2 text-left text-[10px] font-bold tracking-[0.2em] uppercase transition-colors hover:bg-surface-hover ${
+          onDashboard ? "text-accent" : "text-text-dim"
         }`}
       >
         ◆ Dashboard
+      </button>
+      <button
+        type="button"
+        onClick={showConnectionMap}
+        className={`w-full border-b border-border px-3 py-2 text-left text-[10px] font-bold tracking-[0.2em] uppercase transition-colors hover:bg-surface-hover ${
+          onConnections ? "text-accent" : "text-text-dim"
+        }`}
+      >
+        ⬡ Connection Map
       </button>
 
       {/* Severity groups */}
