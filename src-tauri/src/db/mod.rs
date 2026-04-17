@@ -6,11 +6,12 @@ mod items;
 pub mod migrations;
 pub mod models;
 mod notes;
+mod project;
+mod search;
 mod tags;
 
 pub use connections::NewConnection;
 pub use ioi::NewIoi;
-mod search;
 
 use rusqlite::Connection;
 use std::path::Path;

@@ -1,6 +1,6 @@
 import { useStore } from "@/lib/store";
 
-import type { ItemSummary } from "@/lib/types";
+import type { ItemDetail, ItemSummary } from "@/lib/types";
 
 const statusDot: Record<string, string> = {
   untouched: "bg-text-dim/40",
@@ -19,6 +19,7 @@ const severityColor: Record<string, string> = {
 
 function groupBySeverity(
   items: ItemSummary[],
+  itemDetails: Record<string, ItemDetail>,
 ): Record<string, { item: ItemSummary; count: number }[]> {
   const groups: Record<string, { item: ItemSummary; count: number }[]> = {};
   for (const sev of severityOrder) {
@@ -26,7 +27,7 @@ function groupBySeverity(
   }
 
   for (const item of items) {
-    const detail = useStore.getState().itemDetails[item.item.id];
+    const detail = itemDetails[item.item.id];
     if (!detail) continue;
     const counts: Record<string, number> = {};
     for (const ioi of detail.items_of_interest) {
@@ -48,8 +49,7 @@ export function Sidebar(): React.JSX.Element {
   const setActiveTab = useStore((s) => s.setActiveTab);
   const itemDetails = useStore((s) => s.itemDetails);
 
-  const hasDetails = Object.keys(itemDetails).length > 0;
-  const groups = hasDetails ? groupBySeverity(items) : {};
+  const groups = groupBySeverity(items, itemDetails);
   const hasFindings = Object.values(groups).some((g) => g.length > 0);
 
   return (

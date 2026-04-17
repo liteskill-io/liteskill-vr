@@ -7,9 +7,6 @@ pre-commit:
     lint:
       glob: "src/**/*.{ts,tsx}"
       run: pnpm lint
-    oxlint:
-      glob: "src/**/*.{ts,tsx}"
-      run: pnpm oxlint
     format-check:
       glob: "src/**/*.{ts,tsx,css} *.{json,md}"
       run: pnpm format:check

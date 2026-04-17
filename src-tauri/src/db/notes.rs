@@ -59,25 +59,17 @@ impl Database {
         }
 
         let ts = now();
-        if let Some(title) = title {
-            self.conn.execute(
-                "UPDATE notes SET title = ?1, updated_at = ?2 WHERE id = ?3",
-                params![title, ts, id],
-            )?;
-        }
-        if let Some(content) = content {
-            self.conn.execute(
-                "UPDATE notes SET content = ?1, updated_at = ?2 WHERE id = ?3",
-                params![content, ts, id],
-            )?;
-        }
+        self.conn.execute(
+            "UPDATE notes SET
+                title = COALESCE(?1, title),
+                content = COALESCE(?2, content),
+                updated_at = ?3
+             WHERE id = ?4",
+            params![title, content, ts, id],
+        )?;
         if let Some(tags) = tags {
             self.set_note_tags(id, tags)?;
         }
-        self.conn.execute(
-            "UPDATE notes SET updated_at = ?1 WHERE id = ?2",
-            params![ts, id],
-        )?;
 
         let note = self.get_note_by_id(id)?;
         let tags = self.get_note_tags(id)?;

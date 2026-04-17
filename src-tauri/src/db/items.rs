@@ -144,37 +144,23 @@ impl Database {
         tags: Option<&[String]>,
     ) -> Result<ItemWithTags> {
         self.get_item_by_id(id)?;
-
         if let Some(tags) = tags {
             self.validate_tags(tags)?;
         }
 
         let ts = now();
-        if let Some(name) = name {
-            self.conn.execute(
-                "UPDATE items SET name = ?1, updated_at = ?2 WHERE id = ?3",
-                params![name, ts, id],
-            )?;
-        }
-        if let Some(desc) = description {
-            self.conn.execute(
-                "UPDATE items SET description = ?1, updated_at = ?2 WHERE id = ?3",
-                params![desc, ts, id],
-            )?;
-        }
-        if let Some(status) = analysis_status {
-            self.conn.execute(
-                "UPDATE items SET analysis_status = ?1, updated_at = ?2 WHERE id = ?3",
-                params![status, ts, id],
-            )?;
-        }
+        self.conn.execute(
+            "UPDATE items SET
+                name = COALESCE(?1, name),
+                description = COALESCE(?2, description),
+                analysis_status = COALESCE(?3, analysis_status),
+                updated_at = ?4
+             WHERE id = ?5",
+            params![name, description, analysis_status, ts, id],
+        )?;
         if let Some(tags) = tags {
             self.set_item_tags(id, tags)?;
         }
-        self.conn.execute(
-            "UPDATE items SET updated_at = ?1 WHERE id = ?2",
-            params![ts, id],
-        )?;
 
         let item = self.get_item_by_id(id)?;
         let tags = self.get_item_tags(id)?;

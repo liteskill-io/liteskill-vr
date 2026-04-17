@@ -4,12 +4,12 @@ pub mod mcp;
 
 use std::sync::{Arc, Mutex};
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 use db::Database;
 use mcp::server::McpServer;
 
-const MCP_PORT: u16 = 27182;
+pub const MCP_PORT: u16 = 27182;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -24,6 +24,7 @@ pub fn run() {
             commands::get_item,
             commands::list_tags,
             commands::list_connection_types,
+            commands::project_snapshot,
         ])
         .setup(|app| {
             let db_path = std::env::current_dir()
@@ -41,7 +42,12 @@ pub fn run() {
 
             app.manage(Arc::clone(&db));
 
-            let server = McpServer::from_shared(Arc::clone(&db));
+            let app_handle = app.handle().clone();
+            let on_change: mcp::server::OnChange = Arc::new(move || {
+                let _ = app_handle.emit("db-changed", ());
+            });
+
+            let server = McpServer::from_shared(Arc::clone(&db)).with_on_change(on_change);
             tauri::async_runtime::spawn(async move {
                 match server.start(MCP_PORT).await {
                     Ok(addr) => eprintln!("MCP server listening on {addr}"),

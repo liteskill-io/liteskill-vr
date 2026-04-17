@@ -21,6 +21,7 @@ export function Dashboard(): React.JSX.Element {
   const items = useStore((s) => s.items);
   const itemDetails = useStore((s) => s.itemDetails);
   const openTab = useStore((s) => s.openTab);
+  const mcpPort = useStore((s) => s.mcpPort);
 
   const allIois: FlatIoi[] = [];
   for (const item of items) {
@@ -78,7 +79,9 @@ export function Dashboard(): React.JSX.Element {
         </div>
         <div className="max-w-sm text-center text-xs leading-relaxed">
           MCP server running on{" "}
-          <span className="font-mono text-accent">127.0.0.1:27182</span>
+          <span className="font-mono text-accent">
+            {mcpPort ? `127.0.0.1:${String(mcpPort)}` : "starting…"}
+          </span>
         </div>
         <div className="text-[10px] text-text-dim/50">
           Connect an agent and start documenting.

@@ -1,19 +1,24 @@
 import { create } from "zustand";
 
-import type { ItemDetail, ItemSummary, Tag, ConnectionType } from "./types";
+import type {
+  ConnectionType,
+  ItemDetail,
+  ItemSummary,
+  ProjectSnapshot,
+  Tag,
+} from "./types";
 
 interface AppState {
   items: ItemSummary[];
+  itemDetails: Record<string, ItemDetail>;
   tags: Tag[];
   connectionTypes: ConnectionType[];
+  mcpPort: number | null;
+
   openTabs: string[];
   activeTab: string | null;
-  itemDetails: Record<string, ItemDetail>;
 
-  setItems: (items: ItemSummary[]) => void;
-  setTags: (tags: Tag[]) => void;
-  setConnectionTypes: (types: ConnectionType[]) => void;
-  setItemDetail: (id: string, detail: ItemDetail) => void;
+  applySnapshot: (snapshot: ProjectSnapshot) => void;
   openTab: (id: string) => void;
   closeTab: (id: string) => void;
   setActiveTab: (id: string | null) => void;
@@ -21,26 +26,25 @@ interface AppState {
 
 export const useStore = create<AppState>((set) => ({
   items: [],
+  itemDetails: {},
   tags: [],
   connectionTypes: [],
+  mcpPort: null,
   openTabs: [],
   activeTab: null,
-  itemDetails: {},
 
-  setItems: (items): void => {
-    set({ items });
-  },
-  setTags: (tags): void => {
-    set({ tags });
-  },
-  setConnectionTypes: (types): void => {
-    set({ connectionTypes: types });
-  },
-
-  setItemDetail: (id, detail): void => {
-    set((state) => ({
-      itemDetails: { ...state.itemDetails, [id]: detail },
-    }));
+  applySnapshot: (snapshot): void => {
+    const itemDetails: Record<string, ItemDetail> = {};
+    for (const detail of snapshot.details) {
+      itemDetails[detail.item.id] = detail;
+    }
+    set({
+      items: snapshot.items,
+      itemDetails,
+      tags: snapshot.tags,
+      connectionTypes: snapshot.connection_types,
+      mcpPort: snapshot.mcp_port,
+    });
   },
 
   openTab: (id): void => {

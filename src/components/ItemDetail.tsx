@@ -1,22 +1,11 @@
-import { useEffect } from "react";
-
 import { SeverityBadge, StatusBadge } from "@/components/SeverityBadge";
-import { getItem } from "@/lib/ipc";
 import { useStore } from "@/lib/store";
 
 export function ItemDetail({ id }: { id: string }): React.JSX.Element {
   const detail = useStore((s) => s.itemDetails[id]);
-  const setItemDetail = useStore((s) => s.setItemDetail);
+  const itemDetails = useStore((s) => s.itemDetails);
   const items = useStore((s) => s.items);
   const openTab = useStore((s) => s.openTab);
-
-  useEffect(() => {
-    getItem(id)
-      .then((d) => {
-        setItemDetail(id, d);
-      })
-      .catch(console.error);
-  }, [id, setItemDetail]);
 
   if (!detail) {
     return (
@@ -33,7 +22,7 @@ export function ItemDetail({ id }: { id: string }): React.JSX.Element {
       const found = items.find((i) => i.item.id === entityId);
       return found?.item.name ?? entityId.slice(0, 8);
     }
-    for (const d of Object.values(useStore.getState().itemDetails)) {
+    for (const d of Object.values(itemDetails)) {
       const ioi = d.items_of_interest.find((i) => i.id === entityId);
       if (ioi) return ioi.title;
     }

@@ -84,43 +84,35 @@ impl Database {
         }
 
         let ts = now();
-        if let Some(title) = title {
-            self.conn.execute(
-                "UPDATE items_of_interest SET title = ?1, updated_at = ?2 WHERE id = ?3",
-                params![title, ts, id],
-            )?;
-        }
-        if let Some(desc) = description {
-            self.conn.execute(
-                "UPDATE items_of_interest SET description = ?1, updated_at = ?2 WHERE id = ?3",
-                params![desc, ts, id],
-            )?;
-        }
-        if let Some(loc) = location {
-            self.conn.execute(
-                "UPDATE items_of_interest SET location = ?1, updated_at = ?2 WHERE id = ?3",
-                params![loc, ts, id],
-            )?;
-        }
-        if let Some(sev) = severity {
-            self.conn.execute(
-                "UPDATE items_of_interest SET severity = ?1, updated_at = ?2 WHERE id = ?3",
-                params![sev, ts, id],
-            )?;
-        }
-        if let Some(status) = status {
-            self.conn.execute(
-                "UPDATE items_of_interest SET status = ?1, updated_at = ?2 WHERE id = ?3",
-                params![status, ts, id],
-            )?;
-        }
+        // For nullable fields (location, severity) we must distinguish "don't change"
+        // from "set to NULL" — COALESCE can't do this, so use a CASE with a
+        // "present" flag. For non-nullable fields COALESCE is fine.
+        let location_set = location.is_some();
+        let severity_set = severity.is_some();
+        self.conn.execute(
+            "UPDATE items_of_interest SET
+                title = COALESCE(?1, title),
+                description = COALESCE(?2, description),
+                location = CASE WHEN ?3 THEN ?4 ELSE location END,
+                severity = CASE WHEN ?5 THEN ?6 ELSE severity END,
+                status = COALESCE(?7, status),
+                updated_at = ?8
+             WHERE id = ?9",
+            params![
+                title,
+                description,
+                location_set,
+                location.flatten(),
+                severity_set,
+                severity.flatten(),
+                status,
+                ts,
+                id,
+            ],
+        )?;
         if let Some(tags) = tags {
             self.set_ioi_tags(id, tags)?;
         }
-        self.conn.execute(
-            "UPDATE items_of_interest SET updated_at = ?1 WHERE id = ?2",
-            params![ts, id],
-        )?;
 
         let ioi = self.get_ioi_by_id(id)?;
         let tags = self.get_ioi_tags(id)?;

@@ -8,27 +8,44 @@ use crate::db::Database;
 use super::handlers;
 use super::tools;
 
+pub type OnChange = Arc<dyn Fn() + Send + Sync>;
+
 pub struct McpServer {
     db: Arc<Mutex<Database>>,
+    on_change: Option<OnChange>,
 }
 
 impl McpServer {
     pub fn new(db: Database) -> Self {
         Self {
             db: Arc::new(Mutex::new(db)),
+            on_change: None,
         }
     }
 
     pub const fn from_shared(db: Arc<Mutex<Database>>) -> Self {
-        Self { db }
+        Self {
+            db,
+            on_change: None,
+        }
+    }
+
+    #[must_use]
+    pub fn with_on_change(mut self, on_change: OnChange) -> Self {
+        self.on_change = Some(on_change);
+        self
     }
 
     pub async fn start(self, port: u16) -> Result<SocketAddr, std::io::Error> {
         let db = self.db;
+        let on_change = self.on_change;
 
         let service_factory = move || {
             let db = Arc::clone(&db);
-            Ok(LiteSkillHandler { db })
+            Ok(LiteSkillHandler {
+                db,
+                on_change: on_change.clone(),
+            })
         };
 
         let config = rmcp::transport::StreamableHttpServerConfig::default()
@@ -58,6 +75,15 @@ impl McpServer {
 
 struct LiteSkillHandler {
     db: Arc<Mutex<Database>>,
+    on_change: Option<OnChange>,
+}
+
+fn is_mutation(tool_name: &str) -> bool {
+    tool_name.ends_with("_create")
+        || tool_name.ends_with("_create_batch")
+        || tool_name.ends_with("_update")
+        || tool_name.ends_with("_delete")
+        || tool_name == "bulk_delete"
 }
 
 impl rmcp::ServerHandler for LiteSkillHandler {
@@ -128,11 +154,18 @@ impl rmcp::ServerHandler for LiteSkillHandler {
         let result = handlers::dispatch(&db, &tool_name, &tool_args, &author);
         drop(db);
 
-        let call_result = if let Some((_code, msg, _data)) = result.error {
-            rmcp::model::CallToolResult::error(vec![rmcp::model::Content::text(msg)])
-        } else {
-            let text = serde_json::to_string(&result.value).unwrap_or_default();
-            rmcp::model::CallToolResult::success(vec![rmcp::model::Content::text(text)])
+        if result.is_ok() && is_mutation(&tool_name) {
+            if let Some(ref on_change) = self.on_change {
+                on_change();
+            }
+        }
+
+        let call_result = match result {
+            Ok(value) => {
+                let text = serde_json::to_string(&value).unwrap_or_default();
+                rmcp::model::CallToolResult::success(vec![rmcp::model::Content::text(text)])
+            }
+            Err(msg) => rmcp::model::CallToolResult::error(vec![rmcp::model::Content::text(msg)]),
         };
 
         std::future::ready(Ok(call_result))

@@ -88,3 +88,11 @@ export interface ItemDetail {
   items_of_interest: IoiWithTags[];
   connections: Connection[];
 }
+
+export interface ProjectSnapshot {
+  items: ItemSummary[];
+  details: ItemDetail[];
+  tags: Tag[];
+  connection_types: ConnectionType[];
+  mcp_port: number;
+}

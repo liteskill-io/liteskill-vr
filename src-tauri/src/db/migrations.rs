@@ -206,19 +206,10 @@ const DEFAULT_CONNECTION_TYPES: &[(&str, &str)] = &[
     ("related", "Loose association worth tracking"),
 ];
 
-const MIGRATIONS: &[(&str, &str)] = &[
-    (
-        "001_add_ioi_status",
-        "ALTER TABLE items_of_interest ADD COLUMN status TEXT NOT NULL DEFAULT 'draft';",
-    ),
-    (
-        "002_nullable_note_item_id",
-        // SQLite doesn't support ALTER COLUMN, but the column was already created
-        // as nullable in the initial schema for new databases. This migration
-        // exists as a placeholder for databases created before that change.
-        "SELECT 1;",
-    ),
-];
+const MIGRATIONS: &[(&str, &str)] = &[(
+    "001_add_ioi_status",
+    "ALTER TABLE items_of_interest ADD COLUMN status TEXT NOT NULL DEFAULT 'draft';",
+)];
 
 pub fn run_migrations(conn: &Connection) -> Result<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL;")?;
