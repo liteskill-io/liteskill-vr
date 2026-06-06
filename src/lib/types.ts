@@ -97,6 +97,7 @@ export interface Explanation {
   summary: string;
   status: "draft" | "reviewed";
   confidence: "low" | "medium" | "high";
+  diagram_html?: string;
   author: string;
   author_type: "human" | "agent";
   created_at: string;
@@ -185,6 +186,21 @@ export interface Transition {
   updated_at: string;
 }
 
+export interface Field {
+  id: string;
+  explanation_id: string;
+  stable_key: string;
+  name: string;
+  field_type: string;
+  offset?: number;
+  size?: number;
+  description: string;
+  author: string;
+  author_type: "human" | "agent";
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ExplanationDetail extends Explanation {
   tags: string[];
   scope_item_ids: string[];
@@ -193,6 +209,7 @@ export interface ExplanationDetail extends Explanation {
   evidence: EvidenceLink[];
   states: State[];
   transitions: Transition[];
+  fields: Field[];
   diagram_text?: string;
 }
 

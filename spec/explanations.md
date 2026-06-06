@@ -1,8 +1,8 @@
 # Explanations (knowledge layer)
 
-> **Status: v1 shipped.** This page documents what exists today. Typed content
-> models (state machines, packet formats, flows) are planned follow-ups — see
-> [Roadmap](#roadmap).
+> **Status: shipped.** This page documents what exists today, including typed
+> content models (state machines + structured packet/struct fields). Remaining
+> follow-ups are in the [Roadmap](#roadmap).
 
 A **finding** says "something dangerous exists here." An **explanation** says
 "this is how the system works." Explanations make understanding a first-class,
@@ -95,15 +95,17 @@ table (which already powers the Connection Map):
 
 ## MCP tools
 
-| Tool                                             | Purpose                                                                                                                                                                                  |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `explanation_upsert`                             | Create/update an explanation **by `stable_key`** with nested `claims` + `open_questions` + `scope_item_ids`, all-or-nothing. Re-runs converge. Returns the detail + advisory `warnings`. |
-| `explanation_get`                                | One explanation with claims, open questions, evidence, and scope.                                                                                                                        |
-| `explanation_list`                               | List with child counts; filter by `explanation_type` / `status`.                                                                                                                         |
-| `explanation_update` / `explanation_delete`      | Update envelope fields / delete an explanation (cascades children + scope/evidence links).                                                                                               |
-| `claim_create` / `claim_update` / `claim_delete` | Granular CRUD for a claim (full CRUD parity).                                                                                                                                            |
-| `open_question_create` / `_update` / `_delete`   | Granular CRUD for an open question.                                                                                                                                                      |
-| `evidence_link` / `evidence_delete`              | Attach / remove evidence on an explanation, claim, or finding.                                                                                                                           |
+| Tool                                                         | Purpose                                                                                                                                                                                  |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `explanation_upsert`                                         | Create/update an explanation **by `stable_key`** with nested `claims` + `open_questions` + `scope_item_ids`, all-or-nothing. Re-runs converge. Returns the detail + advisory `warnings`. |
+| `explanation_get`                                            | One explanation with claims, open questions, evidence, and scope.                                                                                                                        |
+| `explanation_list`                                           | List with child counts; filter by `explanation_type` / `status`.                                                                                                                         |
+| `explanation_update` / `explanation_delete`                  | Update envelope fields / delete an explanation (cascades children + scope/evidence links).                                                                                               |
+| `claim_create` / `claim_update` / `claim_delete`             | Granular CRUD for a claim (full CRUD parity).                                                                                                                                            |
+| `open_question_create` / `_update` / `_delete`               | Granular CRUD for an open question.                                                                                                                                                      |
+| `state_create` / `transition_create` / `_update` / `_delete` | Granular CRUD for state-machine states + transitions.                                                                                                                                    |
+| `field_create` / `field_update` / `field_delete`             | Granular CRUD for structured packet/struct fields (`type`, `offset`, `size`).                                                                                                            |
+| `evidence_link` / `evidence_delete`                          | Attach / remove evidence on an explanation, claim, or finding.                                                                                                                           |
 
 Discovery reuses the existing read tools: `project_summary` includes an
 `explanations` list and open `open_questions`; `changes_since` includes an
@@ -123,6 +125,33 @@ refine a model across sessions.
 - a long `summary` with **no claims** → "prose dump" smell (keep the substance in claims)
 - claims with **no linked evidence** → attach evidence or lower confidence
 
+## Structured content
+
+Highly structured explanation types store their content as editable rows, not
+prose, so each gets a dedicated renderer:
+
+- **State machines** store **states** + **transitions**. The visual diagram and
+  a text rendering (`diagram_text` on `explanation_get`, for agents) are
+  generated from them on the fly — never stored.
+- **Packet formats / structs / memory layouts** store **fields**: each field is
+  `(name, type, offset, size, description)`, upserted by `stable_key` and
+  returned in offset order. The UI renders them as a byte-layout table with a
+  derived byte range per field. `packet_format` and `memory_layout`
+  explanations always show the structure section (even when empty) so a human
+  can start adding fields.
+
+Fields can be supplied inline as a `fields` array on `explanation_upsert`, or
+edited one at a time via `field_create` / `field_update` / `field_delete`.
+
+## Diagrams
+
+For free-form diagrams an explanation may carry an optional **`diagram_html`**
+field: agent- or human-authored HTML (typically a table) that is **sanitized
+server-side with `ammonia`** before storage — scripts, event handlers, and
+unsafe URLs are stripped, so only safe markup is ever kept. The desktop UI
+renders it (the CSP is a second layer). Set it via `explanation_upsert` /
+`explanation_update`.
+
 ## UI
 
 The desktop **Explanations** section lists explanations and shows a detail view:
@@ -135,7 +164,8 @@ live on `db-changed`.
 
 ## Roadmap
 
-v1 ships the envelope + claims + questions + evidence. Planned next: typed
-content models that lower into this layer — **state machine** first (states +
-transitions + Mermaid render), then packet format and data flow — plus a human
-review workflow once the UI gains write actions.
+Shipped: envelope + claims + questions + evidence, plus typed content —
+**state machines** (states + transitions + on-the-fly diagram) and **structured
+fields** (packet formats / structs / memory layouts) — with full human/agent
+CRUD parity in the UI. Planned next: data-flow / control-flow content models and
+a human review workflow.

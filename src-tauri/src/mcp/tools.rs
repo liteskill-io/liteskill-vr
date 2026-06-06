@@ -58,6 +58,18 @@ fn explanation_tools() -> Vec<Value> {
         },
         "required": ["stable_key", "question"]
     });
+    let field_item = json!({
+        "type": "object",
+        "properties": {
+            "stable_key": {"type": "string"},
+            "name": {"type": "string"},
+            "field_type": {"type": "string", "description": "e.g. u8, u16, u32, bytes, string"},
+            "offset": {"type": "integer"},
+            "size": {"type": "integer"},
+            "description": {"type": "string"}
+        },
+        "required": ["stable_key", "name"]
+    });
     vec![
         tool(
             "explanation_upsert",
@@ -71,8 +83,10 @@ fn explanation_tools() -> Vec<Value> {
                 "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
                 "tags": {"type": "array", "items": {"type": "string"}, "description": "Registered tag names"},
                 "scope_item_ids": {"type": "array", "items": {"type": "string"}, "description": "Item ids this explanation covers (linked via 'explains' connections)"},
+                "diagram_html": {"type": "string", "description": "Optional HTML diagram (e.g. a table for a packet/struct/protocol layout). Sanitized server-side: scripts, event handlers, and unsafe URLs are stripped — only safe markup is stored."},
                 "claims": {"type": "array", "items": claim_item},
-                "open_questions": {"type": "array", "items": question_item}
+                "open_questions": {"type": "array", "items": question_item},
+                "fields": {"type": "array", "items": field_item, "description": "Packet/struct fields (type, offset, size)"}
             }),
             &["stable_key", "title"],
         ),
@@ -116,7 +130,8 @@ fn explanation_tools() -> Vec<Value> {
                 "explanation_type": {"type": "string"},
                 "summary": {"type": "string"},
                 "status": {"type": "string", "enum": ["draft", "reviewed"]},
-                "confidence": {"type": "string", "enum": ["low", "medium", "high"]}
+                "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+                "diagram_html": {"type": "string", "description": "HTML diagram; sanitized server-side (scripts/JS stripped)."}
             }),
             &["id"],
         ),
@@ -251,6 +266,38 @@ fn explanation_tools() -> Vec<Value> {
         tool(
             "transition_delete",
             "Delete a transition.",
+            &json!({"id": {"type": "string"}}),
+            &["id"],
+        ),
+        tool(
+            "field_create",
+            "Add a field to a packet_format / memory_layout (struct) explanation.",
+            &json!({
+                "explanation_id": {"type": "string"},
+                "name": {"type": "string"},
+                "field_type": {"type": "string", "description": "e.g. u8, u16, u32, bytes, string"},
+                "offset": {"type": "integer", "description": "byte offset"},
+                "size": {"type": "integer", "description": "byte size"},
+                "description": {"type": "string"}
+            }),
+            &["explanation_id", "name"],
+        ),
+        tool(
+            "field_update",
+            "Update a field.",
+            &json!({
+                "id": {"type": "string"},
+                "name": {"type": "string"},
+                "field_type": {"type": "string"},
+                "offset": {"type": "integer"},
+                "size": {"type": "integer"},
+                "description": {"type": "string"}
+            }),
+            &["id"],
+        ),
+        tool(
+            "field_delete",
+            "Delete a field.",
             &json!({"id": {"type": "string"}}),
             &["id"],
         ),

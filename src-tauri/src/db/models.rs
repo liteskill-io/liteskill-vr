@@ -128,6 +128,8 @@ pub struct Explanation {
     pub summary: String,
     pub status: String,
     pub confidence: String,
+    /// Server-sanitized HTML diagram (no scripts/JS). `None` if unset.
+    pub diagram_html: Option<String>,
     pub author: String,
     pub author_type: String,
     pub created_at: String,
@@ -227,9 +229,28 @@ pub struct Transition {
     pub updated_at: String,
 }
 
-/// Full explanation with its claims, open questions, evidence, scope, and (for
-/// state machines) states + transitions. `diagram_text` is a generated-on-the-fly
-/// text rendering for agents — never stored.
+/// A field in a `packet_format` / `memory_layout` (struct) explanation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Field {
+    pub id: String,
+    pub explanation_id: String,
+    pub stable_key: String,
+    pub name: String,
+    pub field_type: String,
+    pub offset: Option<i64>,
+    pub size: Option<i64>,
+    pub description: String,
+    pub author: String,
+    pub author_type: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// Full explanation with all of its children.
+///
+/// Claims, open questions, evidence, scope, and typed content — states +
+/// transitions (state machines) and fields (packets/structs). `diagram_text` is
+/// a generated-on-the-fly text rendering for agents — never stored.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExplanationDetail {
     #[serde(flatten)]
@@ -241,6 +262,7 @@ pub struct ExplanationDetail {
     pub evidence: Vec<EvidenceLink>,
     pub states: Vec<State>,
     pub transitions: Vec<Transition>,
+    pub fields: Vec<Field>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub diagram_text: Option<String>,
 }

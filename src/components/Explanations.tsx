@@ -4,6 +4,8 @@ import {
   evidenceCreateForm,
   explanationCreateForm,
   explanationEditForm,
+  fieldCreateForm,
+  fieldEditForm,
   questionCreateForm,
   questionEditForm,
   stateCreateForm,
@@ -17,6 +19,7 @@ import type {
   Claim,
   EvidenceLink,
   ExplanationDetail,
+  Field,
   OpenQuestion,
   State,
   Transition,
@@ -210,6 +213,81 @@ function TransitionTable({
             </td>
             <td className="border-b border-border py-1 font-mono">
               {nameOf(t.to_state)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// Dedicated renderer for highly structured packet / struct layouts. Each field
+// is (type, offset, size); rows are shown in offset order with a derived byte
+// range so the layout reads like a wire-format table.
+function FieldTable({
+  fields,
+  onEdit,
+  onDelete,
+}: {
+  fields: Field[];
+  onEdit: (f: Field) => void;
+  onDelete: (f: Field) => void;
+}): React.JSX.Element {
+  const range = (f: Field): string => {
+    if (f.offset == null) return "—";
+    if (f.size == null) return String(f.offset);
+    if (f.size <= 1) return String(f.offset);
+    return `${String(f.offset)}–${String(f.offset + f.size - 1)}`;
+  };
+  return (
+    <table className="w-full border-collapse text-[11px]">
+      <thead>
+        <tr className="text-text-dim">
+          <th className="w-20 border-b border-border py-1 text-left font-semibold">
+            Bytes
+          </th>
+          <th className="border-b border-border py-1 text-left font-semibold">
+            Field
+          </th>
+          <th className="border-b border-border py-1 text-left font-semibold">
+            Type
+          </th>
+          <th className="w-12 border-b border-border py-1 text-right font-semibold">
+            Size
+          </th>
+          <th className="border-b border-border py-1 text-left font-semibold">
+            Description
+          </th>
+          <th className="w-16 border-b border-border py-1" />
+        </tr>
+      </thead>
+      <tbody>
+        {fields.map((f) => (
+          <tr key={f.id} className="align-top text-text">
+            <td className="border-b border-border py-1 font-mono text-text-dim">
+              {range(f)}
+            </td>
+            <td className="border-b border-border py-1 font-mono text-text-bright">
+              {f.name}
+            </td>
+            <td className="border-b border-border py-1 font-mono text-info">
+              {f.field_type || "—"}
+            </td>
+            <td className="border-b border-border py-1 text-right font-mono text-text-dim">
+              {f.size == null ? "—" : String(f.size)}
+            </td>
+            <td className="border-b border-border py-1 text-text-dim">
+              {f.description}
+            </td>
+            <td className="border-b border-border py-1 text-right">
+              <Actions
+                onEdit={(): void => {
+                  onEdit(f);
+                }}
+                onDelete={(): void => {
+                  onDelete(f);
+                }}
+              />
             </td>
           </tr>
         ))}
@@ -563,6 +641,53 @@ function Detail({ detail }: { detail: ExplanationDetail }): React.JSX.Element {
               />
             </div>
           ))}
+        </section>
+      )}
+
+      {(detail.fields.length > 0 ||
+        detail.explanation_type === "packet_format" ||
+        detail.explanation_type === "memory_layout") && (
+        <section className="mb-5">
+          <SectionHeader
+            title={`Structure (${String(detail.fields.length)} fields)`}
+            addLabel="+ Field"
+            onAdd={(): void => {
+              openForm(fieldCreateForm(eid));
+            }}
+          />
+          {detail.fields.length > 0 ? (
+            <FieldTable
+              fields={detail.fields}
+              onEdit={(f): void => {
+                openForm(fieldEditForm(f));
+              }}
+              onDelete={(f): void => {
+                openConfirm({
+                  title: "Delete field",
+                  message: `Delete field "${f.name}"?`,
+                  tool: "field_delete",
+                  args: { id: f.id },
+                });
+              }}
+            />
+          ) : (
+            <p className="text-[12px] text-text-dim">No fields yet.</p>
+          )}
+        </section>
+      )}
+
+      {detail.diagram_html != null && detail.diagram_html !== "" && (
+        <section className="mb-5">
+          <h2 className="mb-1 text-[10px] font-semibold tracking-widest text-text-dim uppercase">
+            Diagram
+          </h2>
+          {/* Server-sanitized HTML (ammonia): scripts, event handlers, and
+              unsafe URLs are stripped before storage, so this is safe to
+              render. CSP (default-src 'self') is the second layer. */}
+          <div
+            className="lsvr-html-diagram overflow-x-auto rounded-sm border border-border bg-surface p-3 text-[12px] text-text"
+            dangerouslySetInnerHTML={{ __html: detail.diagram_html }}
+          />
         </section>
       )}
 

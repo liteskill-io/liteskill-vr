@@ -3,8 +3,8 @@ use serde_json::{json, Value};
 
 use crate::db::error::DbError;
 use crate::db::{
-    ClaimInput, Database, ExplanationInput, NewConnection, NewEvidence, NewIoi, QuestionInput,
-    SearchFilters, StateInput, TransitionInput,
+    ClaimInput, Database, ExplanationInput, FieldInput, NewConnection, NewEvidence, NewIoi,
+    QuestionInput, SearchFilters, StateInput, TransitionInput,
 };
 
 pub type HandlerResult = Result<Value, String>;
@@ -247,6 +247,13 @@ pub fn dispatch(
         "transition_delete" => {
             let id = param_str_required(params, "id")?;
             db.transition_delete(id).map_err(db_err)?;
+            Ok(json!({"deleted": true}))
+        }
+        "field_create" => handle_field_create(db, params, author, author_type),
+        "field_update" => handle_field_update(db, params),
+        "field_delete" => {
+            let id = param_str_required(params, "id")?;
+            db.field_delete(id).map_err(db_err)?;
             Ok(json!({"deleted": true}))
         }
         "explanation_get" => {
@@ -705,6 +712,33 @@ fn param_bool(v: &Value, key: &str) -> bool {
     v.get(key).and_then(Value::as_bool).unwrap_or(false)
 }
 
+fn param_i64(v: &Value, key: &str) -> Option<i64> {
+    v.get(key).and_then(Value::as_i64)
+}
+
+fn parse_fields(params: &Value) -> Result<Vec<FieldInput>, String> {
+    let Some(arr) = params.get("fields").and_then(Value::as_array) else {
+        return Ok(Vec::new());
+    };
+    arr.iter()
+        .enumerate()
+        .map(|(i, f)| {
+            Ok(FieldInput {
+                stable_key: param_str(f, "stable_key")
+                    .ok_or_else(|| format!("fields[{i}]: missing 'stable_key'"))?
+                    .to_string(),
+                name: param_str(f, "name")
+                    .ok_or_else(|| format!("fields[{i}]: missing 'name'"))?
+                    .to_string(),
+                field_type: param_str(f, "field_type").map(String::from),
+                offset: param_i64(f, "offset"),
+                size: param_i64(f, "size"),
+                description: param_str(f, "description").map(String::from),
+            })
+        })
+        .collect()
+}
+
 fn parse_states(params: &Value) -> Result<Vec<StateInput>, String> {
     let Some(arr) = params.get("states").and_then(Value::as_array) else {
         return Ok(Vec::new());
@@ -768,12 +802,14 @@ fn handle_explanation_upsert(
         summary: param_str(params, "summary").unwrap_or("").to_string(),
         status: param_str(params, "status").map(String::from),
         confidence: param_str(params, "confidence").map(String::from),
+        diagram_html: param_str(params, "diagram_html").map(String::from),
         tags: param_tags(params, "tags"),
         scope_item_ids: param_tags(params, "scope_item_ids"),
         claims: parse_claims(params)?,
         open_questions: parse_questions(params)?,
         states: parse_states(params)?,
         transitions: parse_transitions(params)?,
+        fields: parse_fields(params)?,
         author: author.to_string(),
         author_type: author_type.to_string(),
     };
@@ -794,6 +830,7 @@ fn handle_explanation_update(db: &Database, params: &Value) -> HandlerResult {
             param_str(params, "summary"),
             param_str(params, "status"),
             param_str(params, "confidence"),
+            param_str(params, "diagram_html"),
         )
         .map_err(db_err)?,
     )
@@ -927,6 +964,41 @@ fn handle_transition_update(db: &Database, params: &Value) -> HandlerResult {
             param_str(params, "event"),
             param_str(params, "guard"),
             param_str(params, "action"),
+            param_str(params, "description"),
+        )
+        .map_err(db_err)?,
+    )
+}
+
+fn handle_field_create(
+    db: &Database,
+    params: &Value,
+    author: &str,
+    author_type: &str,
+) -> HandlerResult {
+    serialize(
+        db.field_create(
+            param_str_required(params, "explanation_id")?,
+            param_str_required(params, "name")?,
+            param_str(params, "field_type"),
+            param_i64(params, "offset"),
+            param_i64(params, "size"),
+            param_str(params, "description"),
+            author,
+            author_type,
+        )
+        .map_err(db_err)?,
+    )
+}
+
+fn handle_field_update(db: &Database, params: &Value) -> HandlerResult {
+    serialize(
+        db.field_update(
+            param_str_required(params, "id")?,
+            param_str(params, "name"),
+            param_str(params, "field_type"),
+            param_i64(params, "offset"),
+            param_i64(params, "size"),
             param_str(params, "description"),
         )
         .map_err(db_err)?,

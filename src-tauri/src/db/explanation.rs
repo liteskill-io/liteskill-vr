@@ -2,8 +2,8 @@ use rusqlite::{params, OptionalExtension};
 
 use super::error::{DbError, Result};
 use super::models::{
-    Claim, EvidenceLink, Explanation, ExplanationDetail, ExplanationSummary, OpenQuestion, State,
-    Transition,
+    Claim, EvidenceLink, Explanation, ExplanationDetail, ExplanationSummary, Field, OpenQuestion,
+    State, Transition,
 };
 use super::{new_id, now, parse_tag_list, Database};
 
@@ -44,6 +44,16 @@ pub struct TransitionInput {
     pub description: Option<String>,
 }
 
+/// A packet/struct field supplied to [`Database::explanation_upsert`].
+pub struct FieldInput {
+    pub stable_key: String,
+    pub name: String,
+    pub field_type: Option<String>,
+    pub offset: Option<i64>,
+    pub size: Option<i64>,
+    pub description: Option<String>,
+}
+
 /// The full nested input for an idempotent explanation upsert.
 pub struct ExplanationInput {
     pub stable_key: String,
@@ -52,12 +62,14 @@ pub struct ExplanationInput {
     pub summary: String,
     pub status: Option<String>,
     pub confidence: Option<String>,
+    pub diagram_html: Option<String>,
     pub tags: Vec<String>,
     pub scope_item_ids: Vec<String>,
     pub claims: Vec<ClaimInput>,
     pub open_questions: Vec<QuestionInput>,
     pub states: Vec<StateInput>,
     pub transitions: Vec<TransitionInput>,
+    pub fields: Vec<FieldInput>,
     pub author: String,
     pub author_type: String,
 }
@@ -122,10 +134,14 @@ impl Database {
             )
             .optional()?;
 
+        // Sanitize agent/human HTML before it is ever stored.
+        let diagram_html = input.diagram_html.as_deref().map(sanitize_html);
+
         let expl_id = if let Some(id) = existing {
             self.conn.execute(
                 "UPDATE explanations SET title = ?2, explanation_type = ?3, summary = ?4,
-                    status = ?5, confidence = ?6, updated_at = ?7 WHERE id = ?1",
+                    status = ?5, confidence = ?6, updated_at = ?7,
+                    diagram_html = COALESCE(?8, diagram_html) WHERE id = ?1",
                 params![
                     id,
                     input.title,
@@ -133,7 +149,8 @@ impl Database {
                     input.summary,
                     status,
                     confidence,
-                    ts
+                    ts,
+                    diagram_html
                 ],
             )?;
             id
@@ -141,8 +158,8 @@ impl Database {
             let id = new_id();
             self.conn.execute(
                 "INSERT INTO explanations (id, stable_key, title, explanation_type, summary,
-                    status, confidence, author, author_type, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?10, ?9, ?9)",
+                    status, confidence, diagram_html, author, author_type, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?11, ?8, ?10, ?9, ?9)",
                 params![
                     id,
                     input.stable_key,
@@ -153,7 +170,8 @@ impl Database {
                     confidence,
                     input.author,
                     ts,
-                    input.author_type
+                    input.author_type,
+                    diagram_html
                 ],
             )?;
             id
@@ -170,42 +188,70 @@ impl Database {
             )?;
         }
 
-        self.upsert_claims(
-            &expl_id,
-            &input.claims,
-            &input.author,
-            &input.author_type,
-            &ts,
-        )?;
-        self.upsert_questions(
-            &expl_id,
-            &input.open_questions,
-            &input.author,
-            &input.author_type,
-            &ts,
-        )?;
-        self.upsert_scope_links(
-            &expl_id,
-            &input.scope_item_ids,
-            &input.author,
-            &input.author_type,
-            &ts,
-        )?;
-        self.upsert_states(
-            &expl_id,
-            &input.states,
-            &input.author,
-            &input.author_type,
-            &ts,
-        )?;
-        self.upsert_transitions(
-            &expl_id,
-            &input.transitions,
-            &input.author,
-            &input.author_type,
-            &ts,
-        )?;
+        self.upsert_children(&expl_id, input, &ts)?;
         Ok(expl_id)
+    }
+
+    /// Upsert every typed child of an explanation (claims, questions, scope,
+    /// states, transitions, fields) using the parent's author + timestamp.
+    fn upsert_children(&self, expl_id: &str, input: &ExplanationInput, ts: &str) -> Result<()> {
+        let (author, author_type) = (&input.author, &input.author_type);
+        self.upsert_claims(expl_id, &input.claims, author, author_type, ts)?;
+        self.upsert_questions(expl_id, &input.open_questions, author, author_type, ts)?;
+        self.upsert_scope_links(expl_id, &input.scope_item_ids, author, author_type, ts)?;
+        self.upsert_states(expl_id, &input.states, author, author_type, ts)?;
+        self.upsert_transitions(expl_id, &input.transitions, author, author_type, ts)?;
+        self.upsert_fields(expl_id, &input.fields, author, author_type, ts)?;
+        Ok(())
+    }
+
+    fn upsert_fields(
+        &self,
+        expl_id: &str,
+        fields: &[FieldInput],
+        author: &str,
+        author_type: &str,
+        ts: &str,
+    ) -> Result<()> {
+        for f in fields {
+            let existing: Option<String> = self
+                .conn
+                .query_row(
+                    "SELECT id FROM fields WHERE explanation_id = ?1 AND stable_key = ?2",
+                    params![expl_id, f.stable_key],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            let field_type = f.field_type.as_deref().unwrap_or("");
+            let desc = f.description.as_deref().unwrap_or("");
+            if let Some(id) = existing {
+                self.conn.execute(
+                    "UPDATE fields SET name = ?2, field_type = ?3, field_offset = ?4,
+                        field_size = ?5, description = ?6, updated_at = ?7 WHERE id = ?1",
+                    params![id, f.name, field_type, f.offset, f.size, desc, ts],
+                )?;
+            } else {
+                self.conn.execute(
+                    "INSERT INTO fields (id, explanation_id, stable_key, name, field_type,
+                        field_offset, field_size, description, author, author_type, created_at, updated_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)",
+                    params![
+                        new_id(),
+                        expl_id,
+                        f.stable_key,
+                        f.name,
+                        field_type,
+                        f.offset,
+                        f.size,
+                        desc,
+                        author,
+                        author_type,
+                        ts
+                    ],
+                )?;
+            }
+        }
+        Ok(())
     }
 
     fn upsert_states(
@@ -448,6 +494,7 @@ impl Database {
         let evidence = self.get_evidence_for_explanation(id)?;
         let states = self.get_states_for_explanation(id)?;
         let transitions = self.get_transitions_for_explanation(id)?;
+        let fields = self.get_fields_for_explanation(id)?;
         // Text diagram is generated on the fly for agents — never stored.
         let diagram_text = if states.is_empty() && transitions.is_empty() {
             None
@@ -467,8 +514,22 @@ impl Database {
             evidence,
             states,
             transitions,
+            fields,
             diagram_text,
         })
+    }
+
+    fn get_fields_for_explanation(&self, id: &str) -> Result<Vec<Field>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, explanation_id, stable_key, name, field_type, field_offset, field_size,
+                    description, author, author_type, created_at, updated_at
+             FROM fields WHERE explanation_id = ?1
+             ORDER BY field_offset IS NULL, field_offset, created_at",
+        )?;
+        let rows = stmt
+            .query_map(params![id], row_to_field)?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(rows)
     }
 
     fn get_states_for_explanation(&self, id: &str) -> Result<Vec<State>> {
@@ -502,7 +563,7 @@ impl Database {
     ) -> Result<Vec<ExplanationSummary>> {
         let mut stmt = self.conn.prepare(
             "SELECT e.id, e.stable_key, e.title, e.explanation_type, e.summary, e.status,
-                    e.confidence, e.author, e.author_type, e.created_at, e.updated_at,
+                    e.confidence, e.author, e.author_type, e.created_at, e.updated_at, e.diagram_html,
                     (SELECT COUNT(*) FROM claims WHERE explanation_id = e.id),
                     (SELECT COUNT(*) FROM open_questions WHERE explanation_id = e.id AND status = 'open'),
                     (SELECT GROUP_CONCAT(tag_name, char(31)) FROM
@@ -516,9 +577,9 @@ impl Database {
             .query_map(params![explanation_type, status], |row| {
                 Ok((
                     row_to_explanation(row),
-                    parse_tag_list(row.get(13)?),
-                    row.get::<_, i64>(11)?,
+                    parse_tag_list(row.get(14)?),
                     row.get::<_, i64>(12)?,
+                    row.get::<_, i64>(13)?,
                 ))
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -573,6 +634,7 @@ impl Database {
 
     /// Update envelope fields only (children have their own CRUD). `COALESCE`
     /// keeps any field passed as `None`.
+    #[allow(clippy::too_many_arguments)]
     pub fn explanation_update(
         &self,
         id: &str,
@@ -581,13 +643,16 @@ impl Database {
         summary: Option<&str>,
         status: Option<&str>,
         confidence: Option<&str>,
+        diagram_html: Option<&str>,
     ) -> Result<Explanation> {
         self.get_explanation_by_id(id)?;
+        let diagram_html = diagram_html.map(sanitize_html);
         self.conn.execute(
             "UPDATE explanations SET title = COALESCE(?2, title),
                 explanation_type = COALESCE(?3, explanation_type),
                 summary = COALESCE(?4, summary), status = COALESCE(?5, status),
-                confidence = COALESCE(?6, confidence), updated_at = ?7 WHERE id = ?1",
+                confidence = COALESCE(?6, confidence),
+                diagram_html = COALESCE(?8, diagram_html), updated_at = ?7 WHERE id = ?1",
             params![
                 id,
                 title,
@@ -595,7 +660,8 @@ impl Database {
                 summary,
                 status,
                 confidence,
-                now()
+                now(),
+                diagram_html
             ],
         )?;
         self.get_explanation_by_id(id)
@@ -882,6 +948,83 @@ impl Database {
         self.delete_row("transitions", "transition", id)
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub fn field_create(
+        &self,
+        explanation_id: &str,
+        name: &str,
+        field_type: Option<&str>,
+        offset: Option<i64>,
+        size: Option<i64>,
+        description: Option<&str>,
+        author: &str,
+        author_type: &str,
+    ) -> Result<Field> {
+        self.get_explanation_by_id(explanation_id)?;
+        let id = new_id();
+        let ts = now();
+        self.conn.execute(
+            "INSERT INTO fields (id, explanation_id, stable_key, name, field_type, field_offset,
+                field_size, description, author, author_type, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)",
+            params![
+                id,
+                explanation_id,
+                new_id(),
+                name,
+                field_type.unwrap_or(""),
+                offset,
+                size,
+                description.unwrap_or(""),
+                author,
+                author_type,
+                ts
+            ],
+        )?;
+        self.field_by_id(&id)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn field_update(
+        &self,
+        id: &str,
+        name: Option<&str>,
+        field_type: Option<&str>,
+        offset: Option<i64>,
+        size: Option<i64>,
+        description: Option<&str>,
+    ) -> Result<Field> {
+        let changes = self.conn.execute(
+            "UPDATE fields SET name = COALESCE(?2, name), field_type = COALESCE(?3, field_type),
+                field_offset = COALESCE(?4, field_offset), field_size = COALESCE(?5, field_size),
+                description = COALESCE(?6, description), updated_at = ?7 WHERE id = ?1",
+            params![id, name, field_type, offset, size, description, now()],
+        )?;
+        if changes == 0 {
+            return Err(DbError::NotFound {
+                entity: "field".to_string(),
+                id: id.to_string(),
+            });
+        }
+        self.field_by_id(id)
+    }
+
+    pub fn field_delete(&self, id: &str) -> Result<()> {
+        self.delete_row("fields", "field", id)
+    }
+
+    fn field_by_id(&self, id: &str) -> Result<Field> {
+        self.conn
+            .query_row(
+                "SELECT id, explanation_id, stable_key, name, field_type, field_offset, field_size,
+                        description, author, author_type, created_at, updated_at
+                 FROM fields WHERE id = ?1",
+                params![id],
+                row_to_field,
+            )
+            .map_err(map_not_found("field", id))
+    }
+
     fn require_state(&self, explanation_id: &str, stable_key: &str) -> Result<()> {
         let exists: bool = self.conn.query_row(
             "SELECT EXISTS(SELECT 1 FROM states WHERE explanation_id = ?1 AND stable_key = ?2)",
@@ -960,7 +1103,7 @@ impl Database {
         self.conn
             .query_row(
                 "SELECT id, stable_key, title, explanation_type, summary, status, confidence,
-                        author, author_type, created_at, updated_at
+                        author, author_type, created_at, updated_at, diagram_html
                  FROM explanations WHERE id = ?1",
                 params![id],
                 |row| Ok(row_to_explanation(row)),
@@ -1073,7 +1216,17 @@ fn row_to_explanation(row: &rusqlite::Row) -> Explanation {
         author_type: row.get_unwrap(8),
         created_at: row.get_unwrap(9),
         updated_at: row.get_unwrap(10),
+        diagram_html: row.get_unwrap(11),
     }
+}
+
+/// Strip scripts, event handlers, and unsafe URLs from agent/human HTML so only
+/// safe markup is stored. `class` is allowed so diagrams can use styling hooks.
+fn sanitize_html(raw: &str) -> String {
+    ammonia::Builder::default()
+        .add_generic_attributes(["class"])
+        .clean(raw)
+        .to_string()
 }
 
 fn row_to_state(row: &rusqlite::Row) -> rusqlite::Result<State> {
@@ -1089,6 +1242,23 @@ fn row_to_state(row: &rusqlite::Row) -> rusqlite::Result<State> {
         author_type: row.get(8)?,
         created_at: row.get(9)?,
         updated_at: row.get(10)?,
+    })
+}
+
+fn row_to_field(row: &rusqlite::Row) -> rusqlite::Result<Field> {
+    Ok(Field {
+        id: row.get(0)?,
+        explanation_id: row.get(1)?,
+        stable_key: row.get(2)?,
+        name: row.get(3)?,
+        field_type: row.get(4)?,
+        offset: row.get(5)?,
+        size: row.get(6)?,
+        description: row.get(7)?,
+        author: row.get(8)?,
+        author_type: row.get(9)?,
+        created_at: row.get(10)?,
+        updated_at: row.get(11)?,
     })
 }
 
@@ -1272,12 +1442,14 @@ mod tests {
             summary: "short tldr".to_string(),
             status: None,
             confidence: None,
+            diagram_html: None,
             tags: Vec::new(),
             scope_item_ids: Vec::new(),
             claims: Vec::new(),
             open_questions: Vec::new(),
             states: Vec::new(),
             transitions: Vec::new(),
+            fields: Vec::new(),
             author: "claude".to_string(),
             author_type: "agent".to_string(),
         }
@@ -1336,6 +1508,23 @@ mod tests {
         assert_eq!(second.detail.scope_item_ids.len(), 1);
         let conns = db.connection_list(&item.item.id, Some("explains")).unwrap();
         assert_eq!(conns.len(), 1);
+    }
+
+    #[test]
+    fn diagram_html_is_sanitized_on_write() {
+        let db = test_db();
+        let mut input = base_input("explanation.html", "Packet");
+        input.diagram_html = Some(
+            "<table><tr><td>magic</td></tr></table><script>alert(1)</script><a href=\"javascript:evil()\" onclick=\"x()\">bad</a>"
+                .to_string(),
+        );
+        let res = db.explanation_upsert(&input).unwrap();
+        let html = res.detail.explanation.diagram_html.unwrap();
+        assert!(html.contains("<table>"));
+        assert!(html.contains("magic"));
+        assert!(!html.contains("<script"));
+        assert!(!html.contains("onclick"));
+        assert!(!html.contains("javascript:"));
     }
 
     #[test]

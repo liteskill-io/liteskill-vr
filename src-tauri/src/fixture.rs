@@ -14,8 +14,8 @@ use std::collections::HashMap;
 use serde_json::Value;
 
 use crate::db::{
-    ClaimInput, Database, ExplanationInput, NewConnection, NewEvidence, NewIoi, QuestionInput,
-    StateInput, TransitionInput,
+    ClaimInput, Database, ExplanationInput, FieldInput, NewConnection, NewEvidence, NewIoi,
+    QuestionInput, StateInput, TransitionInput,
 };
 
 #[derive(Debug, Default)]
@@ -31,6 +31,7 @@ pub struct SeedStats {
     pub open_questions: usize,
     pub states: usize,
     pub transitions: usize,
+    pub fields: usize,
     pub evidence: usize,
 }
 
@@ -237,6 +238,18 @@ pub fn apply(db: &Database, doc: &Value) -> Result<SeedStats, String> {
             })
             .collect();
 
+        let field_inputs: Vec<FieldInput> = array(e, "fields")
+            .iter()
+            .map(|f| FieldInput {
+                stable_key: str_field(f, "key").unwrap_or("field").to_string(),
+                name: str_field(f, "name").unwrap_or("").to_string(),
+                field_type: str_field(f, "field_type").map(String::from),
+                offset: f.get("offset").and_then(Value::as_i64),
+                size: f.get("size").and_then(Value::as_i64),
+                description: str_field(f, "description").map(String::from),
+            })
+            .collect();
+
         let result = db
             .explanation_upsert(&ExplanationInput {
                 stable_key: str_field(e, "stable_key")
@@ -249,12 +262,14 @@ pub fn apply(db: &Database, doc: &Value) -> Result<SeedStats, String> {
                 summary: str_field(e, "summary").unwrap_or("").to_string(),
                 status: str_field(e, "status").map(String::from),
                 confidence: str_field(e, "confidence").map(String::from),
+                diagram_html: str_field(e, "diagram_html").map(String::from),
                 tags: tag_list(e),
                 scope_item_ids: scope,
                 claims,
                 open_questions,
                 states: state_inputs,
                 transitions: transition_inputs,
+                fields: field_inputs,
                 author: au.to_string(),
                 author_type: at.to_string(),
             })
@@ -264,6 +279,7 @@ pub fn apply(db: &Database, doc: &Value) -> Result<SeedStats, String> {
         stats.open_questions += result.detail.open_questions.len();
         stats.states += result.detail.states.len();
         stats.transitions += result.detail.transitions.len();
+        stats.fields += result.detail.fields.len();
 
         for ev in array(e, "evidence") {
             let target = str_field(ev, "target").unwrap_or("self");
@@ -328,6 +344,7 @@ mod tests {
         assert!(stats.evidence >= 3);
         assert_eq!(stats.states, 4);
         assert_eq!(stats.transitions, 4);
+        assert_eq!(stats.fields, 8, "packet (4) + struct (4)");
 
         // Sanity: it round-trips through the read path the UI uses, and the state
         // machine's text diagram is generated on the fly.
@@ -346,5 +363,16 @@ mod tests {
         assert!(
             text.contains("--SIGNED_NONCE [signature valid] / derive session key--> AUTHENTICATED")
         );
+
+        // The packet explanation has structured fields, ordered by offset.
+        let packet = explanations
+            .iter()
+            .find(|e| e.explanation.explanation_type == "packet_format")
+            .unwrap();
+        let pkt = db.explanation_get(&packet.explanation.id).unwrap();
+        assert_eq!(pkt.fields.len(), 4);
+        assert_eq!(pkt.fields[0].name, "magic");
+        assert_eq!(pkt.fields[0].offset, Some(0));
+        assert_eq!(pkt.fields[0].field_type, "u32");
     }
 }

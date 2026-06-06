@@ -14,7 +14,9 @@ mod tags;
 
 pub use connections::NewConnection;
 pub use evidence::NewEvidence;
-pub use explanation::{ClaimInput, ExplanationInput, QuestionInput, StateInput, TransitionInput};
+pub use explanation::{
+    ClaimInput, ExplanationInput, FieldInput, QuestionInput, StateInput, TransitionInput,
+};
 pub use ioi::NewIoi;
 pub use search::SearchFilters;
 

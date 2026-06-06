@@ -7,6 +7,7 @@ import type {
   Claim,
   ConnectionType,
   Explanation,
+  Field,
   ItemSummary,
   ItemWithTags,
   OpenQuestion,
@@ -257,6 +258,12 @@ const explFields: FormDesc["fields"] = [
     options: CONFIDENCE,
   },
   { name: "status", label: "Status", type: "select", options: EXPL_STATUS },
+  {
+    name: "diagram_html",
+    label: "Diagram (HTML — scripts stripped server-side)",
+    type: "textarea",
+    placeholder: "<table>…</table>",
+  },
   { name: "tags", label: "Tags (comma-separated)", type: "tags" },
 ];
 export const explanationCreateForm = (): FormDesc => ({
@@ -275,6 +282,7 @@ export const explanationEditForm = (e: Explanation): FormDesc => ({
     summary: e.summary,
     confidence: e.confidence,
     status: e.status,
+    diagram_html: e.diagram_html,
   },
   fields: explFields.filter((f) => f.name !== "tags"),
 });
@@ -399,6 +407,39 @@ export const transitionEditForm = (
     description: t.description,
   },
   fields: transitionFields(states),
+});
+
+// --- Fields (packets / structs) ---
+const fieldFields: FormDesc["fields"] = [
+  { name: "name", label: "Name", type: "text", required: true },
+  {
+    name: "field_type",
+    label: "Type",
+    type: "text",
+    placeholder: "u8, u16, u32, bytes, string…",
+  },
+  { name: "offset", label: "Offset (bytes)", type: "number" },
+  { name: "size", label: "Size (bytes)", type: "number" },
+  { name: "description", label: "Description", type: "text" },
+];
+export const fieldCreateForm = (explanationId: string): FormDesc => ({
+  title: "New field",
+  tool: "field_create",
+  hidden: { explanation_id: explanationId },
+  fields: fieldFields,
+});
+export const fieldEditForm = (f: Field): FormDesc => ({
+  title: "Edit field",
+  tool: "field_update",
+  hidden: { id: f.id },
+  initial: {
+    name: f.name,
+    field_type: f.field_type,
+    offset: f.offset,
+    size: f.size,
+    description: f.description,
+  },
+  fields: fieldFields,
 });
 
 // --- Evidence ---

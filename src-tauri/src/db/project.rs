@@ -127,7 +127,7 @@ impl Database {
 
         let mut expl_stmt = self.conn.prepare(
             "SELECT id, stable_key, title, explanation_type, summary, status, confidence,
-                    author, author_type, created_at, updated_at
+                    author, author_type, created_at, updated_at, diagram_html
              FROM explanations WHERE created_at >= ?1 OR updated_at >= ?1 ORDER BY updated_at",
         )?;
         let explanations = expl_stmt
@@ -144,6 +144,7 @@ impl Database {
                     author_type: row.get(8)?,
                     created_at: row.get(9)?,
                     updated_at: row.get(10)?,
+                    diagram_html: row.get(11)?,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;

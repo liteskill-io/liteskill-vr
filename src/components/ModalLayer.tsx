@@ -43,6 +43,10 @@ function buildArgs(
         .map((s) => s.trim())
         .filter(Boolean);
       if (list.length > 0) args[f.name] = list;
+    } else if (f.type === "number") {
+      const s = String(v ?? "").trim();
+      const n = Number(s);
+      if (s !== "" && !Number.isNaN(n)) args[f.name] = n;
     } else {
       const s = String(v ?? "").trim();
       if (s !== "") args[f.name] = s;
@@ -102,7 +106,7 @@ function Field({
         />
       ) : (
         <input
-          type="text"
+          type={field.type === "number" ? "number" : "text"}
           className={base}
           value={String(value)}
           placeholder={field.placeholder}

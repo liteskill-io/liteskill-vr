@@ -280,6 +280,7 @@
       "title": "Wire protocol overview",
       "explanation_type": "protocol",
       "summary": "Length-prefixed binary protocol: 4-byte magic, 1-byte type, 2-byte length, payload. Types: HELLO(1), LOGIN(3), CMD(4).",
+      "diagram_html": "<table><thead><tr><th>Type</th><th>Name</th><th>Direction</th><th>Payload</th></tr></thead><tbody><tr><td>1</td><td>HELLO</td><td>client → server</td><td>none</td></tr><tr><td>2</td><td>NONCE</td><td>server → client</td><td>16-byte nonce</td></tr><tr><td>3</td><td>LOGIN</td><td>client → server</td><td>signed nonce + creds</td></tr><tr><td>4</td><td>CMD</td><td>client → server</td><td>command (post-auth)</td></tr></tbody></table>",
       "status": "draft",
       "confidence": "medium",
       "tags": ["protocol"],
@@ -299,6 +300,39 @@
       "title": "LoginRequest packet format",
       "explanation_type": "packet_format",
       "summary": "magic(u32)=0x4c534b4c, type(u8)=3, length(u16, payload bytes), payload(bytes). length and payload are attacker-controlled.",
+      "fields": [
+        {
+          "key": "magic",
+          "name": "magic",
+          "field_type": "u32",
+          "offset": 0,
+          "size": 4,
+          "description": "Must equal 0x4c534b4c"
+        },
+        {
+          "key": "type",
+          "name": "type",
+          "field_type": "u8",
+          "offset": 4,
+          "size": 1,
+          "description": "3 = LOGIN"
+        },
+        {
+          "key": "length",
+          "name": "length",
+          "field_type": "u16",
+          "offset": 5,
+          "size": 2,
+          "description": "Attacker-controlled payload length"
+        },
+        {
+          "key": "payload",
+          "name": "payload",
+          "field_type": "bytes",
+          "offset": 7,
+          "description": "Copied into a 256-byte stack buffer"
+        }
+      ],
       "status": "draft",
       "confidence": "medium",
       "tags": ["protocol", "memory-corruption"],
@@ -353,6 +387,36 @@
       "title": "Session context memory layout",
       "explanation_type": "memory_layout",
       "summary": "session_ctx struct (0x40 bytes): nonce[16] @0x00, state(u32) @0x10, key[32] @0x14. The 256-byte login buffer sits just below the saved return address.",
+      "fields": [
+        {
+          "key": "nonce",
+          "name": "nonce[16]",
+          "field_type": "bytes",
+          "offset": 0,
+          "size": 16
+        },
+        {
+          "key": "state",
+          "name": "state",
+          "field_type": "u32",
+          "offset": 16,
+          "size": 4
+        },
+        {
+          "key": "key",
+          "name": "key[32]",
+          "field_type": "bytes",
+          "offset": 20,
+          "size": 32
+        },
+        {
+          "key": "pad",
+          "name": "padding",
+          "field_type": "bytes",
+          "offset": 52,
+          "size": 12
+        }
+      ],
       "status": "draft",
       "confidence": "low",
       "tags": [],

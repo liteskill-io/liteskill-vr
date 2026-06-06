@@ -15,7 +15,7 @@ type RootView = "dashboard" | "connections" | "explanations" | "vocabulary";
 export interface FormField {
   name: string;
   label: string;
-  type: "text" | "textarea" | "select" | "checkbox" | "tags";
+  type: "text" | "textarea" | "select" | "checkbox" | "tags" | "number";
   options?: { value: string; label: string }[];
   required?: boolean;
   placeholder?: string;

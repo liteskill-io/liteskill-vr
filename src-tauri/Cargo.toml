@@ -53,6 +53,9 @@ rusqlite = { version = "0.35", features = ["bundled"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2"
+# HTML sanitizer for agent/human-authored diagram HTML — strips scripts, event
+# handlers, and unsafe URLs server-side so only safe markup is ever stored.
+ammonia = "4"
 axum = "0.8"
 tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "signal", "macros"] }
 rmcp = { version = "1.4.0", features = ["transport-streamable-http-server", "transport-io", "server"] }

@@ -144,6 +144,9 @@ const MUTATION_TOOLS: &[&str] = &[
     "transition_create",
     "transition_update",
     "transition_delete",
+    "field_create",
+    "field_update",
+    "field_delete",
     "bulk_delete",
 ];
 

@@ -185,6 +185,7 @@ CREATE TABLE IF NOT EXISTS explanations (
     summary TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'draft',
     confidence TEXT NOT NULL DEFAULT 'medium',
+    diagram_html TEXT,
     author TEXT NOT NULL,
     author_type TEXT NOT NULL,
     created_at TEXT NOT NULL,
@@ -289,6 +290,28 @@ CREATE TABLE IF NOT EXISTS transitions (
 CREATE INDEX IF NOT EXISTS idx_states_explanation ON states(explanation_id);
 CREATE INDEX IF NOT EXISTS idx_transitions_explanation ON transitions(explanation_id);
 
+-- Typed content for packet_format / memory_layout (struct) explanations: an
+-- ordered list of fields (type, offset, size). The dedicated field-table
+-- renderer is generated from these rows. (field_offset/field_size avoid the
+-- SQL OFFSET/SIZE keyword footguns; exposed as offset/size in the API.)
+CREATE TABLE IF NOT EXISTS fields (
+    id TEXT PRIMARY KEY,
+    explanation_id TEXT NOT NULL REFERENCES explanations(id) ON DELETE CASCADE,
+    stable_key TEXT NOT NULL,
+    name TEXT NOT NULL,
+    field_type TEXT NOT NULL DEFAULT '',
+    field_offset INTEGER,
+    field_size INTEGER,
+    description TEXT NOT NULL DEFAULT '',
+    author TEXT NOT NULL,
+    author_type TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE (explanation_id, stable_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_fields_explanation ON fields(explanation_id);
+
 -- Cascade cleanup of polymorphic references on delete.
 CREATE TRIGGER IF NOT EXISTS explanations_delete_connections AFTER DELETE ON explanations BEGIN
     DELETE FROM connections WHERE
@@ -392,6 +415,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "INSERT OR IGNORE INTO connection_types (id, name, description, created_at) VALUES
             (lower(hex(randomblob(16))), 'explains', 'Source explanation explains/covers the target item', strftime('%Y-%m-%dT%H:%M:%SZ','now')),
             (lower(hex(randomblob(16))), 'affects', 'Source finding affects or relates to the target explanation', strftime('%Y-%m-%dT%H:%M:%SZ','now'));",
+    ),
+    (
+        "003_add_explanation_diagram_html",
+        "ALTER TABLE explanations ADD COLUMN diagram_html TEXT;",
     ),
 ];
 
