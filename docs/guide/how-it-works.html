@@ -96,13 +96,13 @@
         <h2>Typical workflow</h2>
         <ol>
         <li>The researcher opens LiteSkill VR and creates a project.</li>
-        <li>The researcher (or an agent via MCP) adds items representing files of interest.</li>
+        <li>An agent (over MCP) adds items representing files of interest — MCP is the write path.</li>
         <li>The researcher opens Ghidra with binaries loaded (e.g. <code>pyghidra-mcp</code> running).</li>
         <li>The researcher starts Claude Code configured with both <code>pyghidra-mcp</code>
             and <code>liteskill</code>.</li>
         <li>Claude calls <code>project_summary</code> to orient, then analyzes via Ghidra and
             documents into LiteSkill VR.</li>
-        <li>The researcher reviews, edits, and annotates in the UI.</li>
+        <li>The researcher reviews the findings live in the UI (read-only today; UI editing is planned).</li>
         <li>Next session: Claude calls <code>changes_since</code> to catch up, then continues
             where the last session left off.</li>
         </ol>

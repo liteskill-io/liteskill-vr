@@ -72,9 +72,9 @@
         <table>
         <thead><tr><th>Threat</th><th>Mitigation</th></tr></thead>
         <tbody>
-        <tr><td>Malicious agent output</td><td>Agent-created content is rendered as sanitized markdown. No raw HTML execution.</td></tr>
+        <tr><td>Malicious agent output</td><td>Agent-created content is currently rendered as <strong>escaped plain text</strong>, so embedded HTML never executes. (Planned markdown rendering must sanitize and forbid raw HTML.)</td></tr>
         <tr><td>MCP server exposure</td><td>Bound to <code>127.0.0.1</code> only. Not accessible from the network.</td></tr>
-        <tr><td>Malicious graph imports</td><td>Import parsers validate and sanitize input. No code execution from imported data.</td></tr>
+        <tr><td>Malicious imports (planned)</td><td>Import is not implemented yet; when added, parsers must validate and sanitize input with no code execution from imported data.</td></tr>
         <tr><td>Supply chain (dependencies)</td><td>Tauri's Rust backend minimizes JS dependency surface. CSP enforced in the webview.</td></tr>
         </tbody>
         </table>
@@ -82,15 +82,24 @@
         <h2>Data handling</h2>
         <ul>
         <li>All project data stored locally in SQLite — no cloud sync.</li>
-        <li>Export files may contain sensitive vulnerability details — the user is warned before export.</li>
-        <li>All MCP mutations are logged with author, author_type, and timestamp.</li>
+        <li>Every mutation is stamped with <code>author</code>, <code>author_type</code>, and a timestamp.</li>
         <li><code>bulk_delete</code> requires at least one filter to prevent an accidental full wipe.</li>
+        <li><strong>Planned:</strong> export will warn that exported files may contain sensitive vulnerability details.</li>
         </ul>
 
         <h2>Content Security Policy</h2>
-        <p>The Tauri webview enforces a strict CSP: no inline scripts, no <code>eval</code>,
-           no external resource loading (fonts and images are loaded from the app bundle),
-           and <code>connect-src</code> limited to localhost (the MCP server).</p>
+        <p>The Tauri webview enforces a strict CSP (<code>src-tauri/tauri.conf.json</code>):</p>
+        <pre data-lang="text"><code>default-src 'self';
+img-src 'self' asset: https://asset.localhost;
+style-src 'self';
+connect-src 'self' http://127.0.0.1</code></pre>
+        <ul>
+        <li><code>default-src 'self'</code> — no inline scripts, no <code>eval</code>, no remote script/resource loading.</li>
+        <li><code>img-src</code> also allows Tauri's local <code>asset:</code> protocol (bundled assets), not arbitrary remote images.</li>
+        <li><code>connect-src</code> is limited to the app and the local MCP server on <code>127.0.0.1</code>.</li>
+        </ul>
+        <p>The app's Tauri capabilities are minimal — only <code>core:default</code> and
+           <code>opener:default</code>.</p>
       </article>
       <nav class="page-nav">
         <a class="prev" href="file-formats.html">&larr; File formats</a>

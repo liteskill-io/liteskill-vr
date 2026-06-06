@@ -23,3 +23,8 @@ pre-commit:
     rust-fmt:
       glob: "src-tauri/src/**/*.rs"
       run: task rs:fmt:check
+    docs-check:
+      glob:
+        - "CLAUDE.md"
+        - "Taskfile.yml"
+      run: task docs:check

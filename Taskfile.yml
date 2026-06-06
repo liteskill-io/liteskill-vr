@@ -187,6 +187,7 @@ tasks:
   check:fe:
     desc: "Every non-mutating frontend gate (CI parity)"
     cmds:
+      - task: docs:check
       - task: fe:typecheck
       - task: fe:lint
       - task: fe:format:check
@@ -214,6 +215,11 @@ tasks:
       - task: check
 
   # ---------------------------------------------------------------- docs ---
+  docs:check:
+    desc: "Verify CLAUDE.md task refs and file links still resolve (anti-rot)"
+    cmds:
+      - node scripts/check-docs.mjs
+
   docs:serve:
     desc: "Serve the static docs/ site locally at http://localhost:8000"
     dir: "{{.ROOT_DIR}}/docs"

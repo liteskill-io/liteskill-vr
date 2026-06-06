@@ -28,7 +28,7 @@
 │  └───────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────┘
          ▲                        ▲
-         │ UI interaction         │ MCP (HTTP+SSE on 127.0.0.1)
+         │ UI interaction         │ MCP (streamable-HTTP on 127.0.0.1)
          │                        │
     Researcher              Claude Code / Codex
                             (with pyghidra-mcp
@@ -37,20 +37,26 @@
 
 ## Components
 
-### Frontend (TypeScript / React)
+> **Implementation status.** The frontend today is a **read-only viewer**. It
+> renders the project and updates live; it does not create, edit, or delete
+> entities. All mutations happen through the MCP server (see below). The
+> editing affordances described in [ui.md](ui.md) are planned, not yet built.
 
-- **Tab Bar**: Open items as tabs, browser-like navigation
-- **Item Browser**: List of all items in the project with status and summary stats
-- **Item Detail View**: Notes, items of interest, connections for the selected item
-- **Connection Map**: Cytoscape.js graph showing items and their connections across the project
-- **Search**: Full-text search with results across all entity types
-- **Tag Manager**: View, create, and edit registered tags and connection types
-- **Zustand Store**: Client-side state, syncs with Rust backend via Tauri IPC
+- **Dashboard**: Project overview — item list, severity/triage breakdown, and recent findings (home view).
+- **Tab Bar**: Open items as tabs (open/close/switch). Each tab is an item.
+- **Item Detail View**: Read-only display of an item's notes, items of interest, and connections.
+- **Connection Map**: Cytoscape.js graph showing items and their connections across the project; click a node to open it as a tab.
+- **Sidebar**: Navigation — all items / by severity.
+- **Status Bar**: MCP server port and project counts.
+- **Zustand Store**: Client-side view state (open tabs, active view, zoom). Holds the latest project snapshot from the backend.
+
+Not yet implemented in the UI: search results view, tag manager, and a command
+palette — see [ui.md](ui.md).
 
 ### Rust Backend
 
 - **Project Store**: CRUD + delete for all entities. SQLite database (one `.lsvr` file per project) with FTS5 for full-text search.
-- **MCP Server**: HTTP+SSE server on `127.0.0.1`. Starts automatically when a project is opened. Agents connect over HTTP.
+- **MCP Server**: streamable-HTTP server on `127.0.0.1` (the `/mcp` endpoint; also supports a stdio transport in the headless binary). Starts automatically when a project is opened. Agents connect over HTTP.
 
 The Rust crate exposes `db` and `mcp` as pure modules — nothing in them depends
 on Tauri — so both the desktop app and the standalone headless binary
@@ -81,43 +87,46 @@ desktop app.
 
 ## Data Flow
 
-1. User opens LiteSkill VR → opens or creates a `.lsvr` project file → MCP server starts.
-2. User creates items and adds notes via the UI.
-3. User starts Claude Code with `liteskill-mcp` configured.
-4. Claude calls `project_summary` to orient itself, then reads/writes entities via MCP tools.
-5. Frontend receives updates via IPC events and renders them in real time.
-6. User navigates the UI to review, edit, search, delete, and annotate.
+1. User opens LiteSkill VR → it opens or creates `project.lsvr` in the working directory → the MCP server starts automatically.
+2. The frontend calls `project_snapshot` once and renders the whole project.
+3. User starts Claude Code (or Codex) pointed at the MCP server (port shown in the status bar).
+4. The agent calls `project_summary` to orient itself, then reads/writes entities via MCP tools — **all writes go through MCP**.
+5. Every backend mutation emits a `db-changed` event; the frontend re-fetches `project_snapshot` and re-renders. The UI is always a complete, consistent view of the database.
+6. User navigates the UI to review findings (read-only today).
 
 ## IPC Contract
 
-Frontend ↔ Backend communication uses Tauri `invoke` (request/response) and `listen`/`emit` (events).
+The frontend is a read-only viewer, so the Tauri IPC surface is deliberately
+tiny: **one command** plus **one event**.
 
 ```
-invoke("project_get") → Project
-invoke("item_list", { filters }) → Item[]
-invoke("item_get", { id }) → ItemDetail (item + notes + ioi + connections)
-invoke("item_create", { data }) → Item
-invoke("item_update", { id, data }) → Item
-invoke("item_delete", { id }) → void
-invoke("note_create", { item_id, data }) → Note
-invoke("note_delete", { id }) → void
-invoke("ioi_create", { item_id, data }) → ItemOfInterest
-invoke("ioi_delete", { id }) → void
-invoke("connection_create", { data }) → Connection
-invoke("connection_delete", { id }) → void
-invoke("connection_list", { entity_id }) → Connection[] (both directions)
-invoke("connection_list_all") → Connection[] (project-wide)
-invoke("tag_list") → Tag[]
-invoke("tag_create", { data }) → Tag
-invoke("tag_delete", { id }) → void
-invoke("connection_type_list") → ConnectionType[]
-invoke("connection_type_create", { data }) → ConnectionType
-invoke("search", { query, filters }) → SearchResult[]
-invoke("changes_since", { timestamp }) → ChangeSet
+invoke("project_snapshot") → {
+  items,             // Item summaries
+  details,           // full ItemDetail per item (notes + ioi + connections)
+  tags,              // registered Tag[]
+  connection_types,  // registered ConnectionType[]
+  mcp_port           // where agents connect (e.g. 27182)
+}
 
-listen("entity_changed", callback) // fired when MCP or UI mutates data
+listen("db-changed", callback)  // emitted on every backend mutation; the
+                                // frontend responds by re-fetching the snapshot
 ```
+
+All data **mutation** happens through the MCP server (see [mcp.md](mcp.md)), not
+through IPC. This keeps a single write path and a single, coarse sync signal —
+important because an AI agent mutates the database concurrently with the user.
+
+> **Planned.** When UI-driven editing lands, it should be added as thin Tauri
+> commands that call the same shared `db` functions the MCP tools use and then
+> emit `db-changed` — **not** as a parallel per-entity IPC + event system, which
+> would duplicate the MCP write logic and reintroduce cache-coherence bugs.
 
 ## Persistence
 
-Each project is a single `.lsvr` file (SQLite with custom extension). The app opens project files via a standard file dialog. Projects can be backed up or shared by copying the file.
+Each project is a single `.lsvr` file (SQLite, WAL mode, foreign keys on).
+Projects can be backed up or shared by copying the file.
+
+> **Implementation status.** The desktop app currently opens (or creates)
+> `project.lsvr` in the current working directory; there is no open/new file
+> dialog or OS file-association yet. Those are planned — see
+> [file-formats.md](file-formats.md).

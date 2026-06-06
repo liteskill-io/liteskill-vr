@@ -1,5 +1,22 @@
 # UI Specification
 
+> **Implementation status (read this first).** The shipped UI is a **read-only
+> viewer**: it renders the project and updates live as an AI agent writes to it
+> over MCP, but it does **not** create, edit, or delete entities. This document
+> mixes what exists with the intended design. Sections are tagged **Built** or
+> **Planned**. Anything not tagged Built is a design target, not current
+> behaviour. Today's write path is the MCP server — see [mcp.md](mcp.md).
+>
+> **Built today:** Dashboard (project overview), read-only Item Detail, the
+> Connection Map, a Sidebar (all items / by severity), an item Tab Bar, the
+> Status Bar, live refresh on `db-changed`, dark theme, and zoom
+> (`Ctrl`/`⌘` `+` / `-` / `0`).
+>
+> **Planned (not yet built):** all create/edit/delete affordances, the command
+> palette, the tag manager, a search-results view, markdown rendering + syntax
+> highlighting, tab badges/reordering, breadcrumb + back/forward history, and the
+> shortcut table below (except zoom).
+
 ## Design Philosophy
 
 The UI is built for rapid navigation across a large project. The researcher needs to hop between items, search for patterns, review AI-generated findings, and correct mistakes without losing context.
@@ -32,7 +49,10 @@ Key principles:
 └──────────────────────────────────────────────────────────┘
 ```
 
-### Navigation Bar (top)
+### Navigation Bar (top) — Planned
+
+Not built. Navigation today is via the Sidebar (all items / by severity) and the
+Tab Bar. The intended design:
 
 - **Back / Forward**: browser-like history stack
 - **Breadcrumb**: project > item > item of interest (clickable at every level)
@@ -40,11 +60,8 @@ Key principles:
 
 ### Tab Bar (bottom of content area)
 
-- One tab per open item
-- Tabs show item name and a badge for number of items of interest
-- Right-click: close, close others
-- Drag to reorder
-- `[+]` or Ctrl+O to open another item
+- One tab per open item, showing the item name; click to switch, click ✕ to close (**Built**)
+- **Planned:** a badge for the number of items of interest, right-click close/close-others, drag-to-reorder, and `[+]`/`Ctrl+O` to open another item
 
 ### Status Bar
 
@@ -64,6 +81,10 @@ Home view when no item tab is focused.
 - Tag filter sidebar
 
 ### Item Detail
+
+**Built** as a read-only view; the inline edit/add/delete/connect affordances
+described below are **Planned**. Today the view displays the data and an empty
+state points the user at the MCP server for adding content.
 
 Main view when an item tab is active. Three sections:
 
@@ -103,7 +124,10 @@ Project-wide view showing all items and their connections as a graph.
 - Click an item node to open it as a tab
 - Useful for understanding how components relate across a firmware image
 
-### Tag Manager
+### Tag Manager — Planned
+
+Not built yet. Tags are displayed read-only on items and findings; managing them
+happens over MCP (`tag_create` / `tag_delete`). The intended UI:
 
 Accessible from project settings or command palette.
 
@@ -112,7 +136,10 @@ Accessible from project settings or command palette.
 - Edit tag descriptions and colors
 - Delete tags (removes from all entities)
 
-### Search Results
+### Search Results — Planned
+
+Not built yet. Full-text `search` and structured `filter` exist as MCP tools
+(see [mcp.md](mcp.md)); there is no in-UI search view. The intended UI:
 
 Full-screen search results view.
 
@@ -122,6 +149,11 @@ Full-screen search results view.
 - Filter by entity type, severity, tags
 
 ## Keyboard Shortcuts
+
+> **Planned**, except the zoom shortcuts. Today only `Ctrl`/`⌘` `+` / `-` / `0`
+> (zoom in / out / reset) are wired up. The rest of this table is a design
+> target — none of `⌘K`, `n`, `a`, `c`, `Tab`, `Esc`, `?`, or `Delete` is
+> implemented yet.
 
 | Key                    | Action                                     |
 | ---------------------- | ------------------------------------------ |
@@ -142,6 +174,7 @@ When an AI agent creates, updates, or deletes entities via MCP, the UI updates i
 
 ## Theming
 
-- Dark mode default
-- Light mode available
-- Syntax highlighting for code snippets in notes (Shiki)
+- Dark mode (the only theme today; a monospace, terminal-leaning aesthetic).
+- **Planned:** a light mode, markdown rendering of notes/descriptions (they are
+  currently shown as escaped plain text), and syntax highlighting for code
+  snippets. No markdown or highlighting library is wired up yet.

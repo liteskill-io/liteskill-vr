@@ -63,38 +63,30 @@
            finding — with an AI agent helping. It assumes LiteSkill VR is already
            <a href="installation.html">installed</a>.</p>
 
-        <h2>1. Create a project</h2>
-        <p>Launch LiteSkill VR and create a new project. You choose where the
-           <code>.lsvr</code> file lives — this single SQLite file <em>is</em> your
-           project, so put it somewhere you back up. A new project comes pre-loaded with
-           the default <a href="data-model.html">tags and connection types</a>, so you
-           can start tagging findings immediately.</p>
+        <blockquote><p><strong>Note.</strong> Today the desktop UI is a
+           <strong>read-only viewer</strong> — you don't type findings into it. Items,
+           notes, and findings are written by an <strong>AI agent over MCP</strong>, and the
+           UI shows them live. This walkthrough reflects that flow.</p></blockquote>
+
+        <h2>1. Open the project</h2>
+        <p>Launch LiteSkill VR. It opens (or creates) <code>project.lsvr</code> in its
+           working directory — this single SQLite file <em>is</em> your project, so keep it
+           somewhere you back up. A new project comes pre-loaded with the default
+           <a href="data-model.html">tags and connection types</a>, so an agent can tag
+           findings immediately.</p>
 
         <p>The status bar confirms the MCP server is listening and shows its port. Keep
-           that port handy — your agent connects to it in step&nbsp;4.</p>
+           that port handy — your agent connects to it next.</p>
 
-        <h2>2. Add items</h2>
+        <h2>2. What an item is</h2>
         <p>An <strong>item</strong> is anything you're analyzing — a binary, a shared
            object, a kernel module, a script, a config file. It is a documentation
-           entry, not the file itself, so you record metadata about it rather than
-           uploading anything.</p>
-        <p>Add an item from the project overview and fill in what you know:</p>
-        <ul>
-        <li><strong>Name</strong> — e.g. <code>httpd</code></li>
-        <li><strong>Type</strong> — freeform, e.g. <code>elf</code>, <code>shared_object</code>, <code>config</code></li>
-        <li><strong>Path / architecture</strong> — optional, for your own reference (e.g. <code>/usr/bin/httpd</code>, <code>arm32</code>)</li>
-        <li><strong>Tags</strong> — drawn from the registered set</li>
-        </ul>
+           entry, not the file itself: you (well, your agent) records metadata such as
+           name (e.g. <code>httpd</code>), type (e.g. <code>elf</code>), optional path and
+           architecture, and registered tags — nothing is uploaded. Items are created
+           through MCP (step&nbsp;4), not typed into the UI.</p>
 
-        <h2>3. Document a finding by hand</h2>
-        <p>Open the item as a tab. Press <code>n</code> to add an <strong>item of
-           interest</strong> — a function, a string, a config line, a suspicious
-           pattern, a potential bug. Give it a title, a description (markdown), an
-           optional location (address/line/symbol), and a severity. Press <code>a</code>
-           to attach a free-form <strong>note</strong>. This is the same data your agent
-           will write — you're just doing it manually first to see the shape of it.</p>
-
-        <h2>4. Connect an AI agent</h2>
+        <h2>3. Connect an AI agent</h2>
         <p>Point Claude Code (or Codex) at the MCP server shown in the status bar:</p>
         <pre data-lang="json"><code>{
           "mcpServers": {
@@ -104,36 +96,37 @@
           }
         }</code></pre>
         <p>Use the port from your status bar. For per-agent attribution, set the author
-           header (see <a href="agents.html">Working with AI agents</a>). Now ask your
-           agent to orient itself — it will call <code>project_summary</code> and see the
-           item you created.</p>
+           header (see <a href="agents.html">Working with AI agents</a>). Ask the agent to
+           orient itself — it calls <code>project_summary</code> — then to create your first
+           item (e.g. the <code>httpd</code> binary) with <code>item_create</code>. It
+           appears in the UI immediately.</p>
 
-        <h2>5. Let the agent document</h2>
+        <h2>4. Let the agent document</h2>
         <p>With an analysis backend such as <code>pyghidra-mcp</code> connected too, ask
            your agent to analyze the binary and record findings. It writes items of
            interest, notes, and connections through MCP — and they appear in your UI
            <strong>live</strong>, no refresh needed. A typical agent turn batches its
            writes so they all land atomically.</p>
 
-        <h2>6. Review and connect the dots</h2>
-        <p>Switch to the <a href="interface.html#connection-map">Connection map</a> to
-           see how items relate across the project — which binary links which library,
-           which script spawns which daemon. Use <code>⌘K</code>/<code>Ctrl+K</code> to
-           search everything, and the <code>filter</code> view (e.g. all
-           <code>critical</code> items of interest) to triage. Edit or delete anything
-           the agent got wrong; if a whole session went sideways, an agent can undo its
-           own batch with <code>bulk_delete</code>.</p>
+        <h2>5. Review and connect the dots</h2>
+        <p>Browse the Dashboard and open items as tabs to read what the agent recorded, and
+           switch to the <a href="interface.html#connection-map">Connection map</a> to see
+           how items relate across the project — which binary links which library, which
+           script spawns which daemon. To triage or correct, drive the agent: ask it to
+           <code>filter</code> for all <code>critical</code> items of interest, to fix or
+           <code>ioi_delete</code> a false positive, or — if a whole session went sideways —
+           to undo its own batch with <code>bulk_delete</code>. (UI-side editing is
+           planned; today corrections go through the agent over MCP.)</p>
 
-        <h2>7. Share or archive</h2>
+        <h2>6. Share or archive</h2>
         <p>Your project is one <code>.lsvr</code> file. Copy it to back it up, hand it to
-           a teammate, or archive it at the end of an engagement. Export a
-           <a href="file-formats.html">markdown report, JSON, or SARIF</a> when you need
-           a deliverable.</p>
+           a teammate, or archive it at the end of an engagement. Deliverable exports
+           (<a href="file-formats.html">markdown report, JSON, SARIF</a>) are planned.</p>
 
         <blockquote>
         <p><strong>Next session?</strong> Your agent calls <code>changes_since</code>
-           with the timestamp of its last run to catch up on everything that changed —
-           including your manual edits — before continuing.</p>
+           with the timestamp of its last run to catch up on everything that changed
+           before continuing.</p>
         </blockquote>
       </article>
       <nav class="page-nav">

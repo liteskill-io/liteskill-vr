@@ -96,7 +96,7 @@
         <h3>Note</h3>
         <pre data-lang="typescript"><code>interface Note {
           id: string;
-          item_id: string;
+          item_id?: string;        // optional — a note may be project-level
           title: string;
           content: string;         // markdown
           author: string;          // set automatically from connection identity
@@ -116,6 +116,7 @@
           description: string;     // markdown
           location?: string;       // address, line number, offset, symbol name…
           severity?: "critical" | "high" | "medium" | "low" | "info";
+          status: string;          // workflow state, defaults to "draft"
           author: string;
           author_type: "human" | "agent";
           tags: string[];
@@ -179,21 +180,26 @@
         </ul>
 
         <h2>Duplicate detection</h2>
-        <p>When creating an item of interest, the system checks for existing entries on
-           the same item with a similar title or matching location. If a potential
+        <p>When creating an item of interest, the system checks for an existing entry on
+           the same item with a matching title or matching location. If a potential
            duplicate is found, the response includes a <code>duplicate_warning</code>
            field — but the create still succeeds; the agent or user decides whether to
            proceed.</p>
 
         <h2>Search &amp; filter</h2>
         <ul>
-        <li><strong><code>search</code></strong> — full-text search via SQLite FTS5;
-            requires a text query, returns highlighted snippets with parent context.
-            Optional filters: <code>entity_type</code>, <code>tags</code>,
-            <code>severity</code>, <code>connection_type</code>, <code>author_type</code>.</li>
+        <li><strong><code>search</code></strong> — full-text search via SQLite FTS5 across
+            items, notes, items of interest, and connections; requires a text query, with an
+            optional <code>entity_type</code> to narrow to one kind. Returns highlighted
+            snippets.</li>
         <li><strong><code>filter</code></strong> — structured query with no text search;
-            requires <code>entity_type</code>. For queries like "all critical IOIs" or
-            "all connections of type calls".</li>
+            requires <code>entity_type</code>, then per-type filters (items:
+            <code>item_type</code>, <code>analysis_status</code>, <code>tags</code>; IOIs:
+            <code>item_id</code>, <code>severity</code>, <code>tags</code>,
+            <code>author_type</code>; notes: <code>item_id</code>, <code>tags</code>,
+            <code>author_type</code>; connections: <code>connection_type</code>,
+            <code>author_type</code>). For "all critical IOIs" or "all connections of type
+            calls".</li>
         </ul>
 
         <h2>Batch semantics</h2>

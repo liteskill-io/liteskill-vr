@@ -16,6 +16,7 @@ export default tseslint.config(
       "src-tauri/**",
       "node_modules/**",
       "e2e/**",
+      "scripts/**",
       "*.config.{js,ts}",
       "wdio.conf.ts",
     ],

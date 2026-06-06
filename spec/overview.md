@@ -29,7 +29,7 @@ The app hosts an MCP server on localhost so AI agents like Claude Code or Codex 
 3. Researcher opens Ghidra with binaries loaded (pyghidra-mcp running).
 4. Researcher starts Claude Code configured with both `pyghidra-mcp` and `liteskill-mcp`.
 5. Claude calls `project_summary` to orient, then analyzes via Ghidra and documents into LiteSkill VR.
-6. Researcher reviews, edits, and annotates in the UI.
+6. Researcher reviews the findings in the UI as they appear live. (The UI is read-only today; editing and annotating in the UI are planned — the current write path is the agent over MCP.)
 7. Next session: Claude calls `changes_since` to catch up, then continues where the last session left off.
 
 On headless machines (CI, servers, remote boxes) the same MCP interface is

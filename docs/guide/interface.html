@@ -63,6 +63,17 @@
            items, search for patterns, review AI-generated findings, and correct
            mistakes without losing context.</p>
 
+        <blockquote><p><strong>Implementation status — read this first.</strong> The shipped
+           UI is a <strong>read-only viewer</strong>: it renders the project and updates
+           live as an agent writes to it over MCP, but it does not create, edit, or delete
+           entities. <strong>Built today:</strong> the Dashboard, read-only Item Detail, the
+           Connection Map, a Sidebar (all items / by severity), an item Tab Bar, the Status
+           Bar, live refresh, dark theme, and zoom (<code>Ctrl</code>/<code>⌘</code>
+           <code>+</code>/<code>-</code>/<code>0</code>). <strong>Planned:</strong> all
+           create/edit/delete affordances, the command palette, tag manager, search view,
+           markdown rendering + syntax highlighting, tab badges/reordering, breadcrumb +
+           history, and every shortcut below except zoom.</p></blockquote>
+
         <h2>Design philosophy</h2>
         <ul>
         <li><strong>Tabs, not panels</strong> — each item opens in a tab, like a browser.</li>
@@ -91,15 +102,16 @@
            stats per item and a tag-filter sidebar.</p>
 
         <h3>Item detail</h3>
-        <p>The main view when an item tab is active, in three sections:</p>
+        <p>The main view when an item tab is active — <strong>read-only today</strong>; the
+           inline edit/add/delete affordances below are planned. Three sections:</p>
         <ul>
-        <li><strong>Header</strong> — name, type, path, architecture, status, tags;
-            editable inline, with a delete button.</li>
+        <li><strong>Header</strong> — name, type, path, architecture, status, tags
+            (planned: inline edit + delete).</li>
         <li><strong>Items of interest</strong> — each shows title, severity badge,
-            location, description preview, and tags; click to expand, inline edit/delete,
-            <code>n</code> to add.</li>
-        <li><strong>Notes</strong> — markdown-rendered, with author (human/agent) badge,
-            timestamp, and tags; <code>a</code> to add.</li>
+            location, description preview, and tags; click to expand (planned: inline
+            edit/delete, <code>n</code> to add).</li>
+        <li><strong>Notes</strong> — author (human/agent) badge, timestamp, and tags;
+            shown as plain text today (planned: markdown rendering, <code>a</code> to add).</li>
         <li><strong>Connections</strong> — source → target with type and description;
             click to navigate to the other end.</li>
         </ul>
@@ -110,13 +122,18 @@
            sized by IOI count. Click a node to open it as a tab. Useful for seeing how
            components relate across a firmware image.</p>
 
-        <h3>Tag manager &amp; search</h3>
-        <p>The tag manager lists every registered tag with description, color, and usage
-           count, and lets you create, edit, and delete them. Search results are grouped
-           by entity type with highlighted snippets and filters for entity type, severity,
-           and tags.</p>
+        <h3>Tag manager &amp; search — planned</h3>
+        <p>Neither is in the UI yet. Tags are shown read-only on items and findings;
+           managing tags and running full-text <code>search</code> / structured
+           <code>filter</code> happen over MCP today (see
+           <a href="mcp-tools.html">MCP tools</a>). The intended UI: a tag manager to
+           create/edit/delete tags, and a grouped search-results view with highlighted
+           snippets.</p>
 
         <h2>Keyboard shortcuts</h2>
+        <blockquote><p><strong>Planned, except zoom.</strong> Only
+           <code>Ctrl</code>/<code>⌘</code> <code>+</code>/<code>-</code>/<code>0</code>
+           (zoom) are wired up today; the rest of this table is a design target.</p></blockquote>
         <table>
         <thead><tr><th>Key</th><th>Action</th></tr></thead>
         <tbody>
@@ -133,8 +150,9 @@
         </table>
 
         <p>When an agent creates, updates, or deletes entities via MCP, the UI updates
-           immediately via Tauri IPC events. Dark mode is the default; light mode is
-           available, and code snippets in notes are syntax-highlighted with Shiki.</p>
+           immediately (it re-fetches the snapshot on the <code>db-changed</code> event).
+           Dark mode is the only theme today; a light mode, markdown rendering of notes,
+           and syntax highlighting are planned.</p>
       </article>
       <nav class="page-nav">
         <a class="prev" href="first-project.html">&larr; Your first project</a>

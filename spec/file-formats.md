@@ -1,10 +1,23 @@
 # File Formats
 
+> **Implementation status.** Only the `.lsvr` project file is implemented. Every
+> export and import format below is **Planned — not yet built** (there is no
+> export/import code in the repo today), and OS file-association is not wired up
+> either. This document is the design target for that work.
+
 ## Project Files
 
-Each project is a single `.lsvr` file (SQLite database). The `.lsvr` extension is registered with the OS so double-clicking opens the project in LiteSkill VR.
+Each project is a single `.lsvr` file (a SQLite database — WAL mode, foreign
+keys on). Projects can be backed up, shared, or archived by copying the file.
 
-## Export Formats
+> **Implementation status.** The desktop app currently opens (or creates)
+> `project.lsvr` in its working directory. **Planned:** an open/new file dialog
+> and registering the `.lsvr` extension with the OS so double-clicking opens the
+> project in LiteSkill VR.
+
+## Export Formats — Planned
+
+None of the export formats below are implemented yet.
 
 ### Markdown Report
 
@@ -73,7 +86,9 @@ Static Analysis Results Interchange Format — for integration with GitHub Secur
 - Severity maps to SARIF `level`
 - Tags map to SARIF `taxa`
 
-## Import Formats
+## Import Formats — Planned
+
+Not implemented yet.
 
 ### SARIF Import
 

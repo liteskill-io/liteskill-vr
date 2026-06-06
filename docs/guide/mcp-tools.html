@@ -69,8 +69,9 @@
            reference.</p>
 
         <h2>Connection</h2>
-        <p>The server runs on HTTP (<code>127.0.0.1</code>) using the MCP HTTP+SSE
-           transport, and the port is shown in the status bar. Configure Claude Code:</p>
+        <p>The server runs on HTTP (<code>127.0.0.1</code>) using the MCP streamable-HTTP
+           transport at the <code>/mcp</code> endpoint, and the port is shown in the status
+           bar. Configure Claude Code:</p>
         <pre data-lang="json"><code>{
           "mcpServers": {
             "liteskill": {
@@ -103,7 +104,7 @@
         <thead><tr><th>Tool</th><th>Params</th><th>Returns</th></tr></thead>
         <tbody>
         <tr><td><code>project_get</code></td><td>—</td><td>Project metadata</td></tr>
-        <tr><td><code>project_summary</code></td><td>—</td><td>All items with status/counts, severity breakdown, recent activity, registered tags &amp; connection types. Orients an agent at session start.</td></tr>
+        <tr><td><code>project_summary</code></td><td>—</td><td>All items (with note/ioi/connection counts), a project-wide severity breakdown, registered tags &amp; connection types. Orients an agent at session start.</td></tr>
         <tr><td><code>changes_since</code></td><td><code>since</code></td><td>All entities created/updated after the timestamp, grouped by type.</td></tr>
         </tbody>
         </table>
@@ -127,7 +128,7 @@
         <tbody>
         <tr><td><code>item_list</code></td><td><code>item_type?</code>, <code>analysis_status?</code>, <code>tags?</code></td><td><code>Item[]</code> with note/ioi/connection counts.</td></tr>
         <tr><td><code>item_get</code></td><td><code>id</code></td><td><code>Item</code> + all notes + IOIs + connections.</td></tr>
-        <tr><td><code>item_create</code></td><td><code>name</code>, <code>item_type</code>, <code>path?</code>, <code>architecture?</code>, <code>description</code>, <code>tags?</code></td><td><code>Item</code>. Tags must be registered.</td></tr>
+        <tr><td><code>item_create</code></td><td><code>name</code>, <code>item_type</code>, <code>path?</code>, <code>architecture?</code>, <code>description?</code>, <code>tags?</code></td><td><code>Item</code>. Tags must be registered.</td></tr>
         <tr><td><code>item_create_batch</code></td><td><code>items: […]</code></td><td><code>Item[]</code>. All-or-nothing.</td></tr>
         <tr><td><code>item_update</code></td><td><code>id</code>, mutable fields</td><td><code>Item</code></td></tr>
         <tr><td><code>item_delete</code></td><td><code>id</code></td><td>void. Cascades to notes, IOIs, connections.</td></tr>
@@ -149,7 +150,7 @@
         <table>
         <thead><tr><th>Tool</th><th>Params</th><th>Returns</th></tr></thead>
         <tbody>
-        <tr><td><code>ioi_create</code></td><td><code>item_id</code>, <code>title</code>, <code>description</code>, <code>location?</code>, <code>severity?</code>, <code>tags?</code></td><td><code>ItemOfInterest</code>. Includes <code>duplicate_warning</code> if similar.</td></tr>
+        <tr><td><code>ioi_create</code></td><td><code>item_id</code>, <code>title</code>, <code>description</code>, <code>location?</code>, <code>severity?</code>, <code>status?</code>, <code>tags?</code></td><td><code>ItemOfInterest</code>. Includes <code>duplicate_warning</code> on a matching title/location. <code>status</code> defaults to <code>draft</code>.</td></tr>
         <tr><td><code>ioi_create_batch</code></td><td><code>item_id</code>, <code>items: […]</code></td><td><code>ItemOfInterest[]</code>. All-or-nothing.</td></tr>
         <tr><td><code>ioi_update</code></td><td><code>id</code>, mutable fields</td><td><code>ItemOfInterest</code></td></tr>
         <tr><td><code>ioi_delete</code></td><td><code>id</code></td><td>void. Cascades to connections.</td></tr>
@@ -160,7 +161,7 @@
         <table>
         <thead><tr><th>Tool</th><th>Params</th><th>Returns</th></tr></thead>
         <tbody>
-        <tr><td><code>connection_create</code></td><td><code>source_id</code>, <code>source_type</code>, <code>target_id</code>, <code>target_type</code>, <code>connection_type</code>, <code>description</code></td><td><code>Connection</code>. Type must be registered.</td></tr>
+        <tr><td><code>connection_create</code></td><td><code>source_id</code>, <code>source_type</code>, <code>target_id</code>, <code>target_type</code>, <code>connection_type</code>, <code>description?</code></td><td><code>Connection</code>. Type must be registered.</td></tr>
         <tr><td><code>connection_create_batch</code></td><td><code>connections: […]</code></td><td><code>Connection[]</code>. All-or-nothing.</td></tr>
         <tr><td><code>connection_list</code></td><td><code>entity_id</code>, <code>connection_type?</code></td><td><code>Connection[]</code> where entity is source or target.</td></tr>
         <tr><td><code>connection_list_all</code></td><td>—</td><td>All connections in the project.</td></tr>
@@ -172,7 +173,7 @@
         <table>
         <thead><tr><th>Tool</th><th>Params</th><th>Returns</th></tr></thead>
         <tbody>
-        <tr><td><code>search</code></td><td><code>query</code> (required) + optional filters</td><td>Full-text FTS5 search with highlighted snippets.</td></tr>
+        <tr><td><code>search</code></td><td><code>query</code> (required), <code>entity_type?</code></td><td>Full-text FTS5 search with highlighted snippets. Finer filtering is the job of <code>filter</code>.</td></tr>
         <tr><td><code>filter</code></td><td><code>entity_type</code> (required) + optional filters</td><td>Structured query, no text search.</td></tr>
         <tr><td><code>bulk_delete</code></td><td><code>author?</code>, <code>since?</code>, <code>entity_type?</code></td><td>Deletes all matching entities (≥1 filter required). Returns count.</td></tr>
         </tbody>

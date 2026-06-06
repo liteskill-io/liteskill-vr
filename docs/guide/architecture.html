@@ -81,57 +81,63 @@
         │  └───────────────────────────────────────────┘  │
         └─────────────────────────────────────────────────┘
                ▲                        ▲
-               │ UI interaction         │ MCP (HTTP+SSE on 127.0.0.1)
+               │ UI interaction         │ MCP (streamable-HTTP on 127.0.0.1)
            Researcher              Claude Code / Codex</code></pre>
 
         <h2>Components</h2>
         <h3>Frontend (TypeScript / React)</h3>
+        <blockquote><p><strong>Implementation status.</strong> The frontend today is a
+           <strong>read-only viewer</strong> — it renders the project and updates live, but
+           does not create, edit, or delete entities. All mutations go through the MCP
+           server. The editing UI in <a href="interface.html">The interface</a> is planned.</p></blockquote>
         <ul>
-        <li><strong>Tab bar</strong> — open items as tabs, browser-like navigation</li>
-        <li><strong>Item browser</strong> — all items with status and summary stats</li>
-        <li><strong>Item detail</strong> — notes, items of interest, connections</li>
-        <li><strong>Connection map</strong> — Cytoscape.js graph of items and connections</li>
-        <li><strong>Search</strong> — full-text search across all entity types</li>
-        <li><strong>Tag manager</strong> — registered tags and connection types</li>
-        <li><strong>Zustand store</strong> — client state, synced via Tauri IPC</li>
+        <li><strong>Dashboard</strong> — project overview: items, severity/triage breakdown, recent findings</li>
+        <li><strong>Tab bar</strong> — open items as tabs (open/close/switch); each tab is an item</li>
+        <li><strong>Item detail</strong> — read-only display of an item's notes, items of interest, connections</li>
+        <li><strong>Connection map</strong> — Cytoscape.js graph of items and connections; click a node to open it</li>
+        <li><strong>Sidebar</strong> — navigation (all items / by severity)</li>
+        <li><strong>Zustand store</strong> — client view state; holds the latest project snapshot</li>
         </ul>
+        <p>Not yet in the UI: a search view, a tag manager, and a command palette.</p>
 
         <h3>Rust backend</h3>
         <ul>
         <li><strong>Project store</strong> — CRUD + delete for all entities; SQLite (one
             <code>.lsvr</code> file per project) with FTS5 for full-text search.</li>
-        <li><strong>MCP server</strong> — HTTP+SSE on <code>127.0.0.1</code>, started
-            automatically when a project is opened.</li>
+        <li><strong>MCP server</strong> — streamable-HTTP on <code>127.0.0.1</code> (the
+            <code>/mcp</code> endpoint; also a stdio transport in the headless binary),
+            started automatically when a project is opened.</li>
         </ul>
         <p>The Rust crate exposes <code>db</code> and <code>mcp</code> as pure modules —
            nothing in them depends on Tauri — so both the desktop app and the standalone
            <a href="headless-mcp.html">headless binary</a> link against the same code path.</p>
 
         <h2>IPC contract</h2>
-        <p>Frontend ↔ backend communication uses Tauri <code>invoke</code>
-           (request/response) and <code>listen</code>/<code>emit</code> (events).</p>
-        <pre data-lang="text"><code>invoke("project_get") → Project
-        invoke("item_list", { filters }) → Item[]
-        invoke("item_get", { id }) → ItemDetail (item + notes + ioi + connections)
-        invoke("item_create", { data }) → Item
-        invoke("item_update", { id, data }) → Item
-        invoke("item_delete", { id }) → void
-        invoke("note_create", { item_id, data }) → Note
-        invoke("ioi_create", { item_id, data }) → ItemOfInterest
-        invoke("connection_create", { data }) → Connection
-        invoke("connection_list", { entity_id }) → Connection[] (both directions)
-        invoke("connection_list_all") → Connection[] (project-wide)
-        invoke("tag_list") → Tag[]
-        invoke("connection_type_list") → ConnectionType[]
-        invoke("search", { query, filters }) → SearchResult[]
-        invoke("changes_since", { timestamp }) → ChangeSet
+        <p>The frontend is a read-only viewer, so the Tauri IPC surface is deliberately
+           tiny — <strong>one command</strong> plus <strong>one event</strong>. All
+           <em>mutation</em> happens through the MCP server, not IPC.</p>
+        <pre data-lang="text"><code>invoke("project_snapshot") → {
+  items,             // Item summaries
+  details,           // full ItemDetail per item (notes + ioi + connections)
+  tags,              // registered Tag[]
+  connection_types,  // registered ConnectionType[]
+  mcp_port           // where agents connect (e.g. 27182)
+}
 
-        listen("entity_changed", callback) // fired when MCP or UI mutates data</code></pre>
+listen("db-changed", callback)  // emitted on every backend mutation; the
+                                // frontend responds by re-fetching the snapshot</code></pre>
+        <blockquote><p><strong>Planned.</strong> When UI editing lands it should be thin
+           Tauri commands that call the same shared <code>db</code> functions the MCP tools
+           use, then emit <code>db-changed</code> — not a parallel per-entity IPC + event
+           system, which would duplicate the MCP write logic.</p></blockquote>
 
         <h2>Persistence</h2>
-        <p>Each project is a single <code>.lsvr</code> file (SQLite with a custom
-           extension). The app opens project files via a standard file dialog. Projects
-           can be backed up or shared by copying the file.</p>
+        <p>Each project is a single <code>.lsvr</code> file (SQLite, WAL mode, foreign keys
+           on). Projects can be backed up or shared by copying the file.</p>
+        <blockquote><p><strong>Implementation status.</strong> The desktop app currently
+           opens (or creates) <code>project.lsvr</code> in its working directory; an
+           open/new file dialog and OS file-association are planned (see
+           <a href="file-formats.html">File formats</a>).</p></blockquote>
       </article>
       <nav class="page-nav">
         <a class="prev" href="building.html">&larr; Building from source</a>

@@ -21,7 +21,9 @@
 📖 **[Read the documentation](https://liteskill-io.github.io/liteskill-vr/)** — installation,
 a first-project walkthrough, the interface, working with AI agents over MCP, and the full reference.
 
-See [spec/](spec/) for detailed design documents.
+See [spec/](spec/) for detailed design documents, and
+[CLAUDE.md](CLAUDE.md) for contributor and AI-agent operating guidance
+(repo layout, the `task` workflow, and the non-obvious conventions).
 
 ## User Story
 

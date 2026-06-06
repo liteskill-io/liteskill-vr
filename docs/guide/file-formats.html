@@ -59,12 +59,21 @@
     <main class="content">
       <article>
         <h1>File Formats</h1>
+        <blockquote><p><strong>Implementation status.</strong> Only the <code>.lsvr</code>
+           project file is implemented. Every export and import format below is
+           <strong>planned — not yet built</strong> (there is no export/import code in the
+           repo today), and OS file-association is not wired up either.</p></blockquote>
         <h2>Project files</h2>
-        <p>Each project is a single <code>.lsvr</code> file (a SQLite database). The
-           <code>.lsvr</code> extension is registered with the OS so double-clicking opens
-           the project in LiteSkill VR.</p>
+        <p>Each project is a single <code>.lsvr</code> file (a SQLite database — WAL mode,
+           foreign keys on). Projects can be backed up, shared, or archived by copying the
+           file.</p>
+        <blockquote><p><strong>Status.</strong> The desktop app currently opens (or creates)
+           <code>project.lsvr</code> in its working directory. Planned: an open/new file
+           dialog and registering the <code>.lsvr</code> extension with the OS so
+           double-clicking opens the project.</p></blockquote>
 
-        <h2>Export formats</h2>
+        <h2>Export formats — planned</h2>
+        <p>None of the export formats below are implemented yet.</p>
         <h3>Markdown report</h3>
         <p>A human-readable report generated from project data — items, items of interest
            (with severity and tags), notes, and connections, grouped per item.</p>
@@ -105,7 +114,8 @@
            Security, Azure DevOps, and other tools. Each item of interest maps to a SARIF
            <code>result</code>, severity to <code>level</code>, and tags to <code>taxa</code>.</p>
 
-        <h2>Import formats</h2>
+        <h2>Import formats — planned</h2>
+        <p>Not implemented yet.</p>
         <ul>
         <li><strong>SARIF import</strong> — import results from static-analysis tools as
             draft items of interest for review.</li>
