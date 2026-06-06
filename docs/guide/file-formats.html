@@ -79,35 +79,35 @@
            (with severity and tags), notes, and connections, grouped per item.</p>
         <pre data-lang="markdown"><code># [Project Name] — Research Report
 
-        ## Item: httpd (ELF, arm32)
+## Item: httpd (ELF, arm32)
 
-        **Status**: reviewed
-        **Path**: /usr/bin/httpd
+**Status**: reviewed
+**Path**: /usr/bin/httpd
 
-        ### Items of Interest
+### Items of Interest
 
-        #### parse_header() [Critical] [memory-corruption]
-        **Location**: 0x08041234
+#### parse_header() [Critical] [memory-corruption]
+**Location**: 0x08041234
 
-        No bounds check on Content-Length header...
+No bounds check on Content-Length header...
 
-        ### Connections
-        - httpd → libfoo.so [links]: dynamically links libfoo.so</code></pre>
+### Connections
+- httpd → libfoo.so [links]: dynamically links libfoo.so</code></pre>
 
         <h3>JSON export</h3>
         <p>A machine-readable full project export conforming to the data model.</p>
         <pre data-lang="json"><code>{
-          "format": "liteskill-vr",
-          "version": "1.0",
-          "exported_at": "2026-04-13T00:00:00Z",
-          "project": { ... },
-          "tags": [ ... ],
-          "connection_types": [ ... ],
-          "items": [ ... ],
-          "notes": [ ... ],
-          "items_of_interest": [ ... ],
-          "connections": [ ... ]
-        }</code></pre>
+  "format": "liteskill-vr",
+  "version": "1.0",
+  "exported_at": "2026-04-13T00:00:00Z",
+  "project": { ... },
+  "tags": [ ... ],
+  "connection_types": [ ... ],
+  "items": [ ... ],
+  "notes": [ ... ],
+  "items_of_interest": [ ... ],
+  "connections": [ ... ]
+}</code></pre>
 
         <h3>SARIF</h3>
         <p>Static Analysis Results Interchange Format — for integration with GitHub

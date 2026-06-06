@@ -62,27 +62,62 @@
         <p>LiteSkill VR is a Tauri v2 application: a React/TypeScript frontend over a
            Rust backend that owns the SQLite project store and hosts the MCP server.</p>
 
-        <pre data-lang="text"><code>┌─────────────────────────────────────────────────┐
-        │               LiteSkill VR (Tauri)               │
-        │  ┌───────────────────────────────────────────┐  │
-        │  │           Frontend (React/TS)             │  │
-        │  │  Tabbed Views · Search · Connection Map   │  │
-        │  │  Item Browser · Notes · Tags              │  │
-        │  └─────────────────┬─────────────────────────┘  │
-        │                    │ IPC                         │
-        │  ┌─────────────────┴─────────────────────────┐  │
-        │  │           Rust Backend                    │  │
-        │  │  ┌─────────────┐    ┌─────────────────┐   │  │
-        │  │  │ Project     │    │ MCP Server      │   │  │
-        │  │  │ Store       │◄──►│ (localhost)     │   │  │
-        │  │  │ SQLite      │    │ items, notes,   │   │  │
-        │  │  │ (.lsvr)     │    │ ioi, conns…     │   │  │
-        │  │  └─────────────┘    └─────────────────┘   │  │
-        │  └───────────────────────────────────────────┘  │
-        └─────────────────────────────────────────────────┘
-               ▲                        ▲
-               │ UI interaction         │ MCP (streamable-HTTP on 127.0.0.1)
-           Researcher              Claude Code / Codex</code></pre>
+        <figure class="diagram">
+        <svg viewBox="0 0 772 344" role="img" aria-label="LiteSkill VR architecture: a React frontend over a Rust backend that owns the SQLite store and MCP server" font-family="ui-monospace, monospace" font-size="13">
+          <defs>
+            <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+              <path d="M0 0 L7 3 L0 6 Z" fill="#7df0ff"/>
+            </marker>
+          </defs>
+
+          <!-- Frontend -->
+          <rect x="180" y="40" width="400" height="66" rx="8" fill="#120d24" stroke="#52f0ff"/>
+          <text x="380" y="68" text-anchor="middle" fill="#ece6ff">Frontend — React + TypeScript</text>
+          <text x="380" y="88" text-anchor="middle" fill="#8a83bf" font-size="11">Dashboard · Tabs · Item detail · Connection map · Search</text>
+
+          <!-- IPC link -->
+          <line x1="380" y1="106" x2="380" y2="139" stroke="#7df0ff" marker-end="url(#ar)"/>
+          <text x="392" y="128" fill="#8a83bf" font-size="10">Tauri IPC</text>
+
+          <!-- Backend container -->
+          <rect x="160" y="142" width="440" height="182" rx="8" fill="none" stroke="#4a2f8f"/>
+          <text x="380" y="162" text-anchor="middle" fill="#8a83bf" font-size="11">Rust backend — pure db + mcp modules (no Tauri)</text>
+
+          <!-- Project store -->
+          <rect x="190" y="186" width="180" height="112" rx="8" fill="#120d24" stroke="#3dffa6"/>
+          <text x="280" y="220" text-anchor="middle" fill="#ece6ff">Project store</text>
+          <text x="280" y="244" text-anchor="middle" fill="#8a83bf" font-size="11">SQLite (.lsvr)</text>
+          <text x="280" y="264" text-anchor="middle" fill="#8a83bf" font-size="11">FTS5 full-text search</text>
+
+          <!-- MCP server -->
+          <rect x="410" y="186" width="180" height="112" rx="8" fill="#120d24" stroke="#9b6bff"/>
+          <text x="500" y="220" text-anchor="middle" fill="#ece6ff">MCP server</text>
+          <text x="500" y="244" text-anchor="middle" fill="#8a83bf" font-size="11">127.0.0.1 · /mcp</text>
+          <text x="500" y="264" text-anchor="middle" fill="#8a83bf" font-size="11">+ stdio (headless)</text>
+
+          <!-- store <-> mcp -->
+          <line x1="408" y1="236" x2="372" y2="236" stroke="#7df0ff" marker-end="url(#ar)"/>
+          <line x1="372" y1="250" x2="408" y2="250" stroke="#7df0ff" marker-end="url(#ar)"/>
+
+          <!-- Researcher -->
+          <rect x="14" y="52" width="132" height="60" rx="8" fill="#120d24" stroke="#3dffa6"/>
+          <text x="80" y="80" text-anchor="middle" fill="#ece6ff">Researcher</text>
+          <text x="80" y="98" text-anchor="middle" fill="#8a83bf" font-size="11">desktop UI</text>
+          <line x1="146" y1="73" x2="178" y2="73" stroke="#7df0ff" marker-end="url(#ar)"/>
+          <text x="150" y="64" fill="#8a83bf" font-size="10">UI</text>
+
+          <!-- AI agent -->
+          <rect x="618" y="198" width="138" height="74" rx="8" fill="#120d24" stroke="#9b6bff"/>
+          <text x="687" y="226" text-anchor="middle" fill="#ece6ff">AI agent</text>
+          <text x="687" y="245" text-anchor="middle" fill="#8a83bf" font-size="11">Claude Code / Codex</text>
+          <text x="687" y="261" text-anchor="middle" fill="#8a83bf" font-size="11">(+ pyghidra-mcp)</text>
+          <line x1="616" y1="235" x2="592" y2="235" stroke="#7df0ff" marker-end="url(#ar)"/>
+          <text x="600" y="226" text-anchor="end" fill="#8a83bf" font-size="10">MCP</text>
+        </svg>
+        <figcaption>The researcher works in the UI; agents connect over MCP. Both reach the
+           same <code>.lsvr</code> store — <code>db</code> and <code>mcp</code> are pure Rust
+           modules with no Tauri dependency, so the headless binary links the same code.</figcaption>
+        </figure>
 
         <h2>Components</h2>
         <h3>Frontend (TypeScript / React)</h3>
@@ -123,7 +158,7 @@ invoke("mcp_call", { tool, args }) → result            // WRITE (any tool call
   // human and agent writes provably identical (parity).
 
 listen("db-changed", callback)  // emitted on every backend mutation; the
-                                // frontend responds by re-fetching the snapshot</code></pre>
+                        // frontend responds by re-fetching the snapshot</code></pre>
         <p>One write path (<code>dispatch</code>) and one coarse sync signal
            (<code>db-changed</code>) — the same code for UI and agent writes.</p>
 

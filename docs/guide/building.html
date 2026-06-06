@@ -64,17 +64,17 @@
 
         <h2>Release bundle</h2>
         <pre data-lang="bash"><code># Release binary + installers (.deb / .rpm / .AppImage on Linux)
-        APPIMAGE_EXTRACT_AND_RUN=1 NO_STRIP=1 pnpm tauri build</code></pre>
+APPIMAGE_EXTRACT_AND_RUN=1 NO_STRIP=1 pnpm tauri build</code></pre>
 
         <h2>Binary only</h2>
         <pre data-lang="bash"><code># Binary only (no .deb/.rpm/.AppImage bundles)
-        pnpm tauri build --no-bundle</code></pre>
+pnpm tauri build --no-bundle</code></pre>
 
         <h2>Headless MCP binary</h2>
         <p>The GUI-less MCP server is a separate Cargo binary target and needs no
            WebKitGTK/Tauri system dependencies:</p>
         <pre data-lang="bash"><code>cd src-tauri
-        cargo build --release --bin liteskillvr-mcp --no-default-features</code></pre>
+cargo build --release --bin liteskillvr-mcp --no-default-features</code></pre>
         <p>See <a href="headless-mcp.html">Headless MCP server</a> for how to run it.</p>
       </article>
       <nav class="page-nav">

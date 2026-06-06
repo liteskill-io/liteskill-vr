@@ -184,14 +184,14 @@ Default connection types: `calls`, `imports`, `links`, `reads_config`, `writes_c
    item_get(id)                     → everything known about this item
 
 4. Analyze (via external tools)
-   [pyghidra-mcp calls]            → decompile, get xrefs, etc.
+   [pyghidra-mcp calls]             → decompile, get xrefs, etc.
 
 5. Document findings (batch)
    ioi_create_batch(item_id, [
      { title: "parse_header()", severity: "high", ... },
      { title: "auth_check()",   severity: "critical", ... },
    ])
-   note_create(item_id, ...)       → summary note
+   note_create(item_id, ...)        → summary note
 
 6. Draw connections (batch)
    connection_create_batch([

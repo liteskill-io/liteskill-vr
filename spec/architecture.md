@@ -2,38 +2,48 @@
 
 ## High-Level Diagram
 
-```
-┌─────────────────────────────────────────────────┐
-│               LiteSkill VR (Tauri)              │
-│                                                 │
-│  ┌───────────────────────────────────────────┐  │
-│  │           Frontend (React/TS)             │  │
-│  │                                           │  │
-│  │  Tabbed Views · Search · Connection Map   │  │
-│  │  Item Browser · Notes · Tags              │  │
-│  └─────────────────┬─────────────────────────┘  │
-│                    │ IPC                        │
-│  ┌─────────────────┴─────────────────────────┐  │
-│  │           Rust Backend                    │  │
-│  │                                           │  │
-│  │  ┌─────────────┐    ┌─────────────────┐   │  │
-│  │  │ Project     │    │ MCP Server      │   │  │
-│  │  │ Store       │    │ (localhost)      │   │  │
-│  │  │             │    │                 │   │  │
-│  │  │ SQLite      │◄──►│ Tools for:      │   │  │
-│  │  │ (per project│    │ items, notes,   │   │  │
-│  │  │  .lsvr file)│    │ ioi, connections│   │  │
-│  │  │             │    │ tags, search    │   │  │
-│  │  └─────────────┘    └─────────────────┘   │  │
-│  └───────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────┘
-         ▲                        ▲
-         │ UI interaction         │ MCP (streamable-HTTP on 127.0.0.1)
-         │                        │
-    Researcher              Claude Code / Codex
-                            (with pyghidra-mcp
-                             for Ghidra access)
-```
+<table>
+  <tr>
+    <td colspan="2" align="center"><b>LiteSkill VR</b> — Tauri desktop app</td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <b>Frontend</b> · React + TypeScript<br />
+      Dashboard · Tabs · Item detail · Connection map · Search · Managers
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">▲ &nbsp; Tauri IPC &nbsp; ▼</td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><b>Rust backend</b> — pure <code>db</code> + <code>mcp</code> modules, no Tauri dependency</td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <b>Project store</b><br />
+      SQLite (one <code>.lsvr</code> file)<br />
+      FTS5 full-text search
+    </td>
+    <td align="center" width="50%">
+      <b>MCP server</b> · <code>127.0.0.1/mcp</code><br />
+      streamable-HTTP (+ stdio in the headless binary)<br />
+      tools: items · notes · ioi · connections · tags · search
+    </td>
+  </tr>
+</table>
+
+Two clients drive the same project:
+
+<table>
+  <tr>
+    <th align="center">Researcher</th>
+    <th align="center">Claude Code / Codex</th>
+  </tr>
+  <tr>
+    <td align="center">▲ UI interaction (Tauri IPC)</td>
+    <td align="center">▲ MCP over streamable-HTTP on <code>127.0.0.1</code><br />(+ pyghidra-mcp for Ghidra access)</td>
+  </tr>
+</table>
 
 ## Components
 

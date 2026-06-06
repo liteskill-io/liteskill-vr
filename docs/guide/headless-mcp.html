@@ -71,20 +71,20 @@
 
         <h2>Running it</h2>
         <pre data-lang="bash"><code># HTTP transport (default) — agents connect to http://127.0.0.1:&lt;port&gt;/mcp
-        liteskillvr-mcp path/to/project.lsvr
-        liteskillvr-mcp --port 27182 path/to/project.lsvr
+liteskillvr-mcp path/to/project.lsvr
+liteskillvr-mcp --port 27182 path/to/project.lsvr
 
-        # stdio transport — agents spawn the binary and talk JSON-RPC over stdin/stdout
-        liteskillvr-mcp --stdio path/to/project.lsvr
+# stdio transport — agents spawn the binary and talk JSON-RPC over stdin/stdout
+liteskillvr-mcp --stdio path/to/project.lsvr
 
-        # Create the project file if it doesn't exist
-        liteskillvr-mcp --init path/to/project.lsvr</code></pre>
+# Create the project file if it doesn't exist
+liteskillvr-mcp --init path/to/project.lsvr</code></pre>
 
         <h2>Build from source</h2>
         <pre data-lang="bash"><code># No GUI deps needed
-        cd src-tauri
-        cargo build --release --bin liteskillvr-mcp --no-default-features
-        ./target/release/liteskillvr-mcp path/to/project.lsvr</code></pre>
+cd src-tauri
+cargo build --release --bin liteskillvr-mcp --no-default-features
+./target/release/liteskillvr-mcp path/to/project.lsvr</code></pre>
 
         <p>Building with <code>--no-default-features</code> drops the <code>gui</code>
            feature (which gates Tauri), producing a truly headless binary with no
@@ -93,21 +93,21 @@
         <h2>Claude Code configuration</h2>
         <p>HTTP transport:</p>
         <pre data-lang="json"><code>{
-          "mcpServers": {
-            "liteskill": {
-              "url": "http://127.0.0.1:27182"
-            }
-          }
-        }</code></pre>
+  "mcpServers": {
+    "liteskill": {
+      "url": "http://127.0.0.1:27182"
+    }
+  }
+}</code></pre>
         <p>stdio transport:</p>
         <pre data-lang="json"><code>{
-          "mcpServers": {
-            "liteskill": {
-              "command": "liteskillvr-mcp",
-              "args": ["--stdio", "/path/to/project.lsvr"]
-            }
-          }
-        }</code></pre>
+  "mcpServers": {
+    "liteskill": {
+      "command": "liteskillvr-mcp",
+      "args": ["--stdio", "/path/to/project.lsvr"]
+    }
+  }
+}</code></pre>
 
         <p>The headless binary uses the same tool surface as the embedded server — the
            <a href="mcp-tools.html">MCP tools reference</a> applies identically. In stdio

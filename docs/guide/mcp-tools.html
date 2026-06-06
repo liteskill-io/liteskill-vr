@@ -73,12 +73,12 @@
            transport at the <code>/mcp</code> endpoint, and the port is shown in the status
            bar. Configure Claude Code:</p>
         <pre data-lang="json"><code>{
-          "mcpServers": {
-            "liteskill": {
-              "url": "http://127.0.0.1:27182"
-            }
-          }
-        }</code></pre>
+  "mcpServers": {
+    "liteskill": {
+      "url": "http://127.0.0.1:27182"
+    }
+  }
+}</code></pre>
         <p>Each agent identifies itself with <code>X-LiteSkill-Author: claude-code</code>
            on every request; entities it creates are stamped with that author and
            <code>author_type: "agent"</code>. See also the
@@ -181,39 +181,39 @@
 
         <h2>Typical agent session</h2>
         <pre data-lang="text"><code>1. Orient
-           project_summary()      → current state of all research
-           tag_list()             → available tags
-           connection_type_list() → available connection types
+   project_summary()      → current state of all research
+   tag_list()             → available tags
+   connection_type_list() → available connection types
 
-        2. Catch up (if not first session)
-           changes_since("2024-01-15T...")
+2. Catch up (if not first session)
+   changes_since("2024-01-15T...")
 
-        3. Review a target
-           item_get(id)           → everything known about this item
+3. Review a target
+   item_get(id)           → everything known about this item
 
-        4. Analyze (via external tools, e.g. pyghidra-mcp)
+4. Analyze (via external tools, e.g. pyghidra-mcp)
 
-        5. Document findings (batch)
-           ioi_create_batch(item_id, [...])
-           note_create(item_id, ...)
+5. Document findings (batch)
+   ioi_create_batch(item_id, [...])
+   note_create(item_id, ...)
 
-        6. Draw connections (batch)
-           connection_create_batch([...])
+6. Draw connections (batch)
+   connection_create_batch([...])
 
-        7. Structured queries
-           filter(entity_type="item_of_interest", severity="critical")
+7. Structured queries
+   filter(entity_type="item_of_interest", severity="critical")
 
-        8. Correct mistakes
-           bulk_delete(author="claude-code", since="...", entity_type="item_of_interest")</code></pre>
+8. Correct mistakes
+   bulk_delete(author="claude-code", since="...", entity_type="item_of_interest")</code></pre>
 
         <h2>Batch errors</h2>
         <p>If any entry in a batch fails validation, the whole batch is rejected:</p>
         <pre data-lang="json"><code>{
-          "error": "batch_validation_failed",
-          "index": 3,
-          "message": "Tag 'buffer-overflow' is not registered. Did you mean 'memory-corruption'?",
-          "suggestion": "Call tag_list() to see registered tags, or tag_create() to register a new one."
-        }</code></pre>
+  "error": "batch_validation_failed",
+  "index": 3,
+  "message": "Tag 'buffer-overflow' is not registered. Did you mean 'memory-corruption'?",
+  "suggestion": "Call tag_list() to see registered tags, or tag_create() to register a new one."
+}</code></pre>
       </article>
       <nav class="page-nav">
         <a class="prev" href="data-model.html">&larr; Data model</a>

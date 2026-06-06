@@ -83,16 +83,45 @@
         </ul>
 
         <h2>Layout</h2>
-        <pre data-lang="text"><code>┌──────────────────────────────────────────────────────────┐
-        │ ◄ ►  Breadcrumb: project > httpd > parse_header           │
-        ├──────────────────────────────────────────────────────────┤
-        │                  Active Tab (full bleed)                   │
-        │   Item Detail / Connection Map / Search Results           │
-        ├──────────────────────────────────────────────────────────┤
-        │  httpd  ▸ libfoo.so  ▸ httpd.conf  ▸ init.sh  [+]         │
-        ├──────────────────────────────────────────────────────────┤
-        │  MCP: listening  │  12 items  │  3 critical  │  5 high     │
-        └──────────────────────────────────────────────────────────┘</code></pre>
+        <figure class="diagram">
+        <svg viewBox="0 0 720 360" role="img" aria-label="App window layout: navigation bar, full-bleed active tab, tab strip, and status bar" font-family="ui-monospace, monospace" font-size="13">
+          <!-- window frame -->
+          <rect x="40" y="20" width="640" height="320" rx="10" fill="#120d24" stroke="#4a2f8f"/>
+
+          <!-- nav bar -->
+          <text x="58" y="48" font-size="12">
+            <tspan fill="#52f0ff">&#9668; &#9658;</tspan>
+            <tspan fill="#ece6ff">&#160;&#160; project &#8250; httpd &#8250; parse_header</tspan>
+          </text>
+          <text x="656" y="48" text-anchor="end" fill="#8a83bf" font-size="11">&#8984;K palette</text>
+          <line x1="40" y1="66" x2="680" y2="66" stroke="#2a1f52"/>
+
+          <!-- active tab (full bleed) -->
+          <text x="360" y="170" text-anchor="middle" fill="#ece6ff" font-size="14">Active tab — full bleed</text>
+          <text x="360" y="196" text-anchor="middle" fill="#8a83bf" font-size="11">Item detail · Connection map · Search results</text>
+
+          <!-- tab strip -->
+          <line x1="40" y1="272" x2="680" y2="272" stroke="#2a1f52"/>
+          <text x="60" y="294" font-size="11">
+            <tspan fill="#3dffa6">httpd</tspan>
+            <tspan fill="#8a83bf"> &#9656; libfoo.so &#9656; httpd.conf &#9656; init.sh</tspan>
+            <tspan fill="#52f0ff">&#160;&#160; [ + ]</tspan>
+          </text>
+
+          <!-- status bar -->
+          <line x1="40" y1="306" x2="680" y2="306" stroke="#2a1f52"/>
+          <text x="60" y="328" font-size="11">
+            <tspan fill="#50fa9b">&#9679; MCP</tspan>
+            <tspan fill="#8a83bf"> listening &#160;|&#160; 12 items &#160;|&#160; </tspan>
+            <tspan fill="#ff5577">3 critical</tspan>
+            <tspan fill="#8a83bf"> &#160;|&#160; </tspan>
+            <tspan fill="#ffb454">5 high</tspan>
+          </text>
+        </svg>
+        <figcaption>One window: a navigation bar on top, a full-bleed active tab in the
+           middle, the open-item tab strip, and a status bar with the MCP state and project
+           tallies.</figcaption>
+        </figure>
 
         <h2>Views</h2>
         <h3>Project overview</h3>

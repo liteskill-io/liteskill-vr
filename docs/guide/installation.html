@@ -82,12 +82,12 @@
         <p>Every release ships a <code>SHA256SUMS.txt</code>. Confirm the file you
            downloaded matches before installing:</p>
         <pre data-lang="bash"><code># Linux
-        sha256sum -c SHA256SUMS.txt --ignore-missing
+sha256sum -c SHA256SUMS.txt --ignore-missing
 
-        # macOS
-        shasum -a 256 -c SHA256SUMS.txt --ignore-missing</code></pre>
+# macOS
+shasum -a 256 -c SHA256SUMS.txt --ignore-missing</code></pre>
         <pre data-lang="powershell"><code># Windows (PowerShell) — compare against the matching line in SHA256SUMS.txt
-        Get-FileHash .\liteskill-vr_&lt;version&gt;_x64-setup.exe -Algorithm SHA256</code></pre>
+Get-FileHash .\liteskill-vr_&lt;version&gt;_x64-setup.exe -Algorithm SHA256</code></pre>
 
         <h2>Install</h2>
         <h3>Linux — Debian / Ubuntu</h3>
@@ -100,13 +100,13 @@
 
         <h3>Linux — AppImage</h3>
         <pre data-lang="bash"><code>chmod +x liteskill-vr_&lt;version&gt;_amd64.AppImage
-        ./liteskill-vr_&lt;version&gt;_amd64.AppImage</code></pre>
+./liteskill-vr_&lt;version&gt;_amd64.AppImage</code></pre>
         <p>The AppImage is self-contained and needs no installation. If your kernel
            lacks FUSE, run it with <code>--appimage-extract-and-run</code>.</p>
 
         <h3>macOS</h3>
         <pre data-lang="bash"><code>tar -xzf liteskill-vr-&lt;arch&gt;-apple-darwin.app.tar.gz
-        mv "LiteSkill VR.app" /Applications/</code></pre>
+mv "LiteSkill VR.app" /Applications/</code></pre>
         <p>The bundle is unsigned, so the first launch needs Gatekeeper approval:
            right-click the app → <strong>Open</strong> → <strong>Open</strong>, or clear
            the quarantine attribute:</p>
@@ -138,12 +138,12 @@
 
         <h2>Uninstalling</h2>
         <pre data-lang="bash"><code># Debian/Ubuntu
-        sudo apt remove liteskill-vr
+sudo apt remove liteskill-vr
 
-        # Fedora/RHEL
-        sudo dnf remove liteskill-vr
+# Fedora/RHEL
+sudo dnf remove liteskill-vr
 
-        # AppImage / macOS — just delete the file or the .app bundle</code></pre>
+# AppImage / macOS — just delete the file or the .app bundle</code></pre>
         <p>On Windows, uninstall from <strong>Settings → Apps</strong>. Project
            <code>.lsvr</code> files are left in place; delete them manually if you no
            longer need them.</p>

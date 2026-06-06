@@ -40,24 +40,26 @@ Key principles:
 
 ## Layout
 
-```
-┌──────────────────────────────────────────────────────────┐
-│ ◄ ►  Breadcrumb: project > httpd > parse_header       │
-├──────────────────────────────────────────────────────────┤
-│                                                          │
-│                  Active Tab (full bleed)                  │
-│                                                          │
-│   Item Detail / Connection Map / Search Results          │
-│                                                          │
-│                                                          │
-│                                                          │
-│                                                          │
-├──────────────────────────────────────────────────────────┤
-│  httpd  ▸ libfoo.so  ▸ httpd.conf  ▸ init.sh  [+]      │
-├──────────────────────────────────────────────────────────┤
-│  MCP: listening  │  12 items  │  3 critical  │  5 high  │
-└──────────────────────────────────────────────────────────┘
-```
+<table>
+  <tr>
+    <td align="center"><b>Nav bar</b> &nbsp;·&nbsp; ◄ ► &nbsp; Breadcrumb: project › httpd › parse_header &nbsp;·&nbsp; ⌘K command palette</td>
+  </tr>
+  <tr>
+    <td align="center">
+      <br />
+      <b>Active tab</b> (full bleed)
+      <br /><br />
+      Item detail &nbsp;/&nbsp; Connection map &nbsp;/&nbsp; Search results
+      <br /><br />
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><b>Tab bar</b> &nbsp;·&nbsp; httpd &nbsp;▸ libfoo.so &nbsp;▸ httpd.conf &nbsp;▸ init.sh &nbsp; [ + ]</td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Status bar</b> &nbsp;·&nbsp; MCP: listening &nbsp;|&nbsp; 12 items &nbsp;|&nbsp; 3 critical &nbsp;|&nbsp; 5 high</sub></td>
+  </tr>
+</table>
 
 ### Navigation Bar (top) — Planned
 

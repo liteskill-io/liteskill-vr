@@ -81,64 +81,64 @@
         <h3>Item</h3>
         <p>A documentation entry representing any subject of analysis — not the file itself.</p>
         <pre data-lang="typescript"><code>interface Item {
-          id: string;
-          name: string;
-          item_type: string;       // "elf", "shared_object", "kernel_module", "script", "config"…
-          path?: string;           // original path (reference only)
-          architecture?: string;   // "arm32", "mips-le", "x86_64"…
-          description: string;     // markdown
-          analysis_status: "untouched" | "in_progress" | "reviewed";
-          tags: string[];          // must reference registered Tag names
-          created_at: string;
-          updated_at: string;
-        }</code></pre>
+  id: string;
+  name: string;
+  item_type: string;       // "elf", "shared_object", "kernel_module", "script", "config"…
+  path?: string;           // original path (reference only)
+  architecture?: string;   // "arm32", "mips-le", "x86_64"…
+  description: string;     // markdown
+  analysis_status: "untouched" | "in_progress" | "reviewed";
+  tags: string[];          // must reference registered Tag names
+  created_at: string;
+  updated_at: string;
+}</code></pre>
 
         <h3>Note</h3>
         <pre data-lang="typescript"><code>interface Note {
-          id: string;
-          item_id?: string;        // optional — a note may be project-level
-          title: string;
-          content: string;         // markdown
-          author: string;          // set automatically from connection identity
-          author_type: "human" | "agent";
-          tags: string[];
-          created_at: string;
-          updated_at: string;
-        }</code></pre>
+  id: string;
+  item_id?: string;        // optional — a note may be project-level
+  title: string;
+  content: string;         // markdown
+  author: string;          // set automatically from connection identity
+  author_type: "human" | "agent";
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}</code></pre>
 
         <h3>ItemOfInterest</h3>
         <p>Anything notable about an item — a function, a string, a config line, a
            suspicious pattern, a potential bug. Intentionally untyped.</p>
         <pre data-lang="typescript"><code>interface ItemOfInterest {
-          id: string;
-          item_id: string;
-          title: string;
-          description: string;     // markdown
-          location?: string;       // address, line number, offset, symbol name…
-          severity?: "critical" | "high" | "medium" | "low" | "info";
-          status: string;          // workflow state, defaults to "draft"
-          author: string;
-          author_type: "human" | "agent";
-          tags: string[];
-          created_at: string;
-          updated_at: string;
-        }</code></pre>
+  id: string;
+  item_id: string;
+  title: string;
+  description: string;     // markdown
+  location?: string;       // address, line number, offset, symbol name…
+  severity?: "critical" | "high" | "medium" | "low" | "info";
+  status: string;          // workflow state, defaults to "draft"
+  author: string;
+  author_type: "human" | "agent";
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}</code></pre>
 
         <h3>Connection</h3>
         <p>A relationship between any two entities (item-item, item-ioi, ioi-ioi).
            Bidirectional for queries.</p>
         <pre data-lang="typescript"><code>interface Connection {
-          id: string;
-          source_id: string;
-          source_type: "item" | "item_of_interest";
-          target_id: string;
-          target_type: "item" | "item_of_interest";
-          connection_type: string; // must reference a registered ConnectionType name
-          description: string;     // markdown
-          author: string;
-          author_type: "human" | "agent";
-          created_at: string;
-        }</code></pre>
+  id: string;
+  source_id: string;
+  source_type: "item" | "item_of_interest";
+  target_id: string;
+  target_type: "item" | "item_of_interest";
+  connection_type: string; // must reference a registered ConnectionType name
+  description: string;     // markdown
+  author: string;
+  author_type: "human" | "agent";
+  created_at: string;
+}</code></pre>
 
         <h2>Registered vocabularies</h2>
         <p>Tags and connection types must be registered before use. A starter set ships
