@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Headless MCP server — LiteSkill VR</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/logo.svg">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">
+      <img src="../assets/logo.svg" alt="" class="brand-mark">
+      <span class="brand-name">LITESKILL&nbsp;VR</span>
+      <span class="brand-tag">// guide</span>
+    </a>
+    <nav class="top-nav">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Guide</a>
+      <a href="https://github.com/liteskill-io/liteskill-vr">Source</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <p class="sidebar-section">Guide</p>
+      <ul>
+        <li><a href="index.html">Contents</a></li>
+      </ul>
+      <p class="sidebar-section">Specification</p>
+      <ul>
+        <li><a href="introduction.html">Introduction</a></li>
+      </ul>
+      <p class="sidebar-section">Concept</p>
+      <ul>
+        <li><a href="how-it-works.html">How it works</a></li>
+      </ul>
+      <p class="sidebar-section">User Guide</p>
+      <ul>
+        <li><a href="installation.html">Installation</a></li>
+        <li><a href="first-project.html">Your first project</a></li>
+        <li><a href="interface.html">The interface</a></li>
+        <li><a href="agents.html">Working with AI agents</a></li>
+        <li><a href="headless-mcp.html" aria-current="page">Headless MCP server</a></li>
+      </ul>
+      <p class="sidebar-section">Development</p>
+      <ul>
+        <li><a href="getting-started.html">Development setup</a></li>
+        <li><a href="building.html">Building from source</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="data-model.html">Data model</a></li>
+        <li><a href="mcp-tools.html">MCP tools</a></li>
+      </ul>
+      <p class="sidebar-section">Reference</p>
+      <ul>
+        <li><a href="file-formats.html">File formats</a></li>
+        <li><a href="security.html">Security</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+      <article>
+        <h1>Headless MCP Server</h1>
+        <p>A second binary, <code>liteskillvr-mcp</code>, runs just the MCP interface
+           against a <code>.lsvr</code> project file — without the GUI or any Tauri
+           system dependencies. It supports both HTTP and stdio transports.</p>
+
+        <p>Pre-built binaries for Linux, macOS (x86_64 and aarch64), and Windows ship
+           with each release as
+           <code>liteskillvr-mcp-headless-&lt;target-triple&gt;[.exe]</code>. The Linux
+           <code>.deb</code> / <code>.rpm</code> packages also install it to
+           <code>/usr/bin/liteskillvr-mcp</code> alongside the desktop app.</p>
+
+        <h2>Running it</h2>
+        <pre data-lang="bash"><code># HTTP transport (default) — agents connect to http://127.0.0.1:&lt;port&gt;/mcp
+        liteskillvr-mcp path/to/project.lsvr
+        liteskillvr-mcp --port 27182 path/to/project.lsvr
+
+        # stdio transport — agents spawn the binary and talk JSON-RPC over stdin/stdout
+        liteskillvr-mcp --stdio path/to/project.lsvr
+
+        # Create the project file if it doesn't exist
+        liteskillvr-mcp --init path/to/project.lsvr</code></pre>
+
+        <h2>Build from source</h2>
+        <pre data-lang="bash"><code># No GUI deps needed
+        cd src-tauri
+        cargo build --release --bin liteskillvr-mcp --no-default-features
+        ./target/release/liteskillvr-mcp path/to/project.lsvr</code></pre>
+
+        <p>Building with <code>--no-default-features</code> drops the <code>gui</code>
+           feature (which gates Tauri), producing a truly headless binary with no
+           WebKitGTK/Tauri link-time dependencies.</p>
+
+        <h2>Claude Code configuration</h2>
+        <p>HTTP transport:</p>
+        <pre data-lang="json"><code>{
+          "mcpServers": {
+            "liteskill": {
+              "url": "http://127.0.0.1:27182"
+            }
+          }
+        }</code></pre>
+        <p>stdio transport:</p>
+        <pre data-lang="json"><code>{
+          "mcpServers": {
+            "liteskill": {
+              "command": "liteskillvr-mcp",
+              "args": ["--stdio", "/path/to/project.lsvr"]
+            }
+          }
+        }</code></pre>
+
+        <p>The headless binary uses the same tool surface as the embedded server — the
+           <a href="mcp-tools.html">MCP tools reference</a> applies identically. In stdio
+           mode the author header isn't available, so all writes are attributed to
+           <code>stdio-agent</code>.</p>
+      </article>
+      <nav class="page-nav">
+        <a class="prev" href="agents.html">&larr; Working with AI agents</a>
+        <span class="spacer"></span>
+        <a class="next" href="getting-started.html">Development setup &rarr;</a>
+      </nav>
+    </main>
+  </div>
+  <footer class="sitefoot">
+    <p>LiteSkill VR guide · <a href="../index.html">home</a> · <a href="https://github.com/liteskill-io/liteskill-vr">source</a></p>
+  </footer>
+</body>
+</html>

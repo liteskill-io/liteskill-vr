@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Data model — LiteSkill VR</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/logo.svg">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">
+      <img src="../assets/logo.svg" alt="" class="brand-mark">
+      <span class="brand-name">LITESKILL&nbsp;VR</span>
+      <span class="brand-tag">// guide</span>
+    </a>
+    <nav class="top-nav">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Guide</a>
+      <a href="https://github.com/liteskill-io/liteskill-vr">Source</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <p class="sidebar-section">Guide</p>
+      <ul>
+        <li><a href="index.html">Contents</a></li>
+      </ul>
+      <p class="sidebar-section">Specification</p>
+      <ul>
+        <li><a href="introduction.html">Introduction</a></li>
+      </ul>
+      <p class="sidebar-section">Concept</p>
+      <ul>
+        <li><a href="how-it-works.html">How it works</a></li>
+      </ul>
+      <p class="sidebar-section">User Guide</p>
+      <ul>
+        <li><a href="installation.html">Installation</a></li>
+        <li><a href="first-project.html">Your first project</a></li>
+        <li><a href="interface.html">The interface</a></li>
+        <li><a href="agents.html">Working with AI agents</a></li>
+        <li><a href="headless-mcp.html">Headless MCP server</a></li>
+      </ul>
+      <p class="sidebar-section">Development</p>
+      <ul>
+        <li><a href="getting-started.html">Development setup</a></li>
+        <li><a href="building.html">Building from source</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="data-model.html" aria-current="page">Data model</a></li>
+        <li><a href="mcp-tools.html">MCP tools</a></li>
+      </ul>
+      <p class="sidebar-section">Reference</p>
+      <ul>
+        <li><a href="file-formats.html">File formats</a></li>
+        <li><a href="security.html">Security</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+      <article>
+        <h1>Data Model</h1>
+        <p>Each project is a standalone <code>.lsvr</code> file (SQLite). All entities
+           below live within that database.</p>
+
+        <h2>Author identity</h2>
+        <p>Every entity that tracks authorship (<code>Note</code>,
+           <code>ItemOfInterest</code>, <code>Connection</code>) has <code>author</code>
+           and <code>author_type</code> fields. These are <strong>not</strong> set
+           per-call:</p>
+        <ul>
+        <li><strong>MCP connections</strong> — author comes from the
+            <code>X-LiteSkill-Author</code> HTTP header on each request (default
+            <code>anonymous-agent</code>); <code>author_type</code> is always
+            <code>agent</code>.</li>
+        <li><strong>UI</strong> — author is the OS username; <code>author_type</code> is
+            always <code>human</code>.</li>
+        </ul>
+        <p>This prevents drift across calls ("claude" vs "Claude" vs "claude-code").</p>
+
+        <h2>Core entities</h2>
+        <h3>Item</h3>
+        <p>A documentation entry representing any subject of analysis — not the file itself.</p>
+        <pre data-lang="typescript"><code>interface Item {
+          id: string;
+          name: string;
+          item_type: string;       // "elf", "shared_object", "kernel_module", "script", "config"…
+          path?: string;           // original path (reference only)
+          architecture?: string;   // "arm32", "mips-le", "x86_64"…
+          description: string;     // markdown
+          analysis_status: "untouched" | "in_progress" | "reviewed";
+          tags: string[];          // must reference registered Tag names
+          created_at: string;
+          updated_at: string;
+        }</code></pre>
+
+        <h3>Note</h3>
+        <pre data-lang="typescript"><code>interface Note {
+          id: string;
+          item_id: string;
+          title: string;
+          content: string;         // markdown
+          author: string;          // set automatically from connection identity
+          author_type: "human" | "agent";
+          tags: string[];
+          created_at: string;
+          updated_at: string;
+        }</code></pre>
+
+        <h3>ItemOfInterest</h3>
+        <p>Anything notable about an item — a function, a string, a config line, a
+           suspicious pattern, a potential bug. Intentionally untyped.</p>
+        <pre data-lang="typescript"><code>interface ItemOfInterest {
+          id: string;
+          item_id: string;
+          title: string;
+          description: string;     // markdown
+          location?: string;       // address, line number, offset, symbol name…
+          severity?: "critical" | "high" | "medium" | "low" | "info";
+          author: string;
+          author_type: "human" | "agent";
+          tags: string[];
+          created_at: string;
+          updated_at: string;
+        }</code></pre>
+
+        <h3>Connection</h3>
+        <p>A relationship between any two entities (item-item, item-ioi, ioi-ioi).
+           Bidirectional for queries.</p>
+        <pre data-lang="typescript"><code>interface Connection {
+          id: string;
+          source_id: string;
+          source_type: "item" | "item_of_interest";
+          target_id: string;
+          target_type: "item" | "item_of_interest";
+          connection_type: string; // must reference a registered ConnectionType name
+          description: string;     // markdown
+          author: string;
+          author_type: "human" | "agent";
+          created_at: string;
+        }</code></pre>
+
+        <h2>Registered vocabularies</h2>
+        <p>Tags and connection types must be registered before use. A starter set ships
+           with every new project.</p>
+        <h3>Default tags</h3>
+        <table>
+        <thead><tr><th>Tag</th><th>Meaning</th></tr></thead>
+        <tbody>
+        <tr><td><code>memory-corruption</code></td><td>Buffer overflows, heap issues, use-after-free</td></tr>
+        <tr><td><code>auth-bypass</code></td><td>Authentication or authorization flaws</td></tr>
+        <tr><td><code>command-injection</code></td><td>OS command injection</td></tr>
+        <tr><td><code>hardcoded-creds</code></td><td>Hardcoded passwords, keys, tokens</td></tr>
+        <tr><td><code>info-disclosure</code></td><td>Information leakage</td></tr>
+        <tr><td><code>logic-issue</code></td><td>Business logic or control-flow flaws</td></tr>
+        <tr><td><code>crypto-weakness</code></td><td>Weak or misused cryptography</td></tr>
+        <tr><td><code>race-condition</code></td><td>TOCTOU and concurrency bugs</td></tr>
+        <tr><td><code>format-string</code></td><td>Format-string vulnerabilities</td></tr>
+        <tr><td><code>integer-issue</code></td><td>Integer overflow, underflow, truncation</td></tr>
+        <tr><td><code>insecure-config</code></td><td>Dangerous default or misconfiguration</td></tr>
+        <tr><td><code>debug-interface</code></td><td>Debug ports, test endpoints, JTAG</td></tr>
+        <tr><td><code>interesting</code></td><td>Worth investigating further (not yet classified)</td></tr>
+        </tbody>
+        </table>
+        <h3>Default connection types</h3>
+        <p><code>calls</code>, <code>imports</code>, <code>links</code>,
+           <code>reads_config</code>, <code>writes_config</code>, <code>spawns</code>,
+           <code>related</code>.</p>
+
+        <h2>Deletion</h2>
+        <ul>
+        <li>Deleting an <strong>item</strong> cascades to its notes, items of interest,
+            and any connections referencing it.</li>
+        <li>Deleting an <strong>item of interest</strong> cascades to its connections.</li>
+        <li>Deleting a <strong>tag</strong> removes it from all entities that use it.</li>
+        <li>Deleting a <strong>connection type</strong> removes all connections of that type.</li>
+        <li><strong>Bulk delete</strong> filters by <code>author</code>, <code>since</code>,
+            and <code>entity_type</code> (at least one required) — for undoing a bad
+            agent session.</li>
+        </ul>
+
+        <h2>Duplicate detection</h2>
+        <p>When creating an item of interest, the system checks for existing entries on
+           the same item with a similar title or matching location. If a potential
+           duplicate is found, the response includes a <code>duplicate_warning</code>
+           field — but the create still succeeds; the agent or user decides whether to
+           proceed.</p>
+
+        <h2>Search &amp; filter</h2>
+        <ul>
+        <li><strong><code>search</code></strong> — full-text search via SQLite FTS5;
+            requires a text query, returns highlighted snippets with parent context.
+            Optional filters: <code>entity_type</code>, <code>tags</code>,
+            <code>severity</code>, <code>connection_type</code>, <code>author_type</code>.</li>
+        <li><strong><code>filter</code></strong> — structured query with no text search;
+            requires <code>entity_type</code>. For queries like "all critical IOIs" or
+            "all connections of type calls".</li>
+        </ul>
+
+        <h2>Batch semantics</h2>
+        <p>All <code>_batch</code> create operations are transactional. If any entry fails
+           validation (invalid tag, unregistered connection type, missing required field),
+           the entire batch is rejected with the specific error. No partial creates occur.</p>
+      </article>
+      <nav class="page-nav">
+        <a class="prev" href="architecture.html">&larr; Architecture</a>
+        <span class="spacer"></span>
+        <a class="next" href="mcp-tools.html">MCP tools &rarr;</a>
+      </nav>
+    </main>
+  </div>
+  <footer class="sitefoot">
+    <p>LiteSkill VR guide · <a href="../index.html">home</a> · <a href="https://github.com/liteskill-io/liteskill-vr">source</a></p>
+  </footer>
+</body>
+</html>

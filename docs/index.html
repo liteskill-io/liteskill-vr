@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LiteSkill VR — structured notebook for vulnerability research</title>
+  <meta name="description" content="Desktop app with an MCP server for methodical, structured vulnerability research documentation. Humans and AI agents record findings side by side. Built with Tauri v2, React, and TypeScript.">
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html">
+      <img src="assets/logo.svg" alt="" class="brand-mark">
+      <span class="brand-name">LITESKILL&nbsp;VR</span>
+      <span class="brand-tag">// v0.1.4</span>
+    </a>
+    <nav class="top-nav">
+      <a href="index.html" aria-current="page">Home</a>
+      <a href="guide/index.html">Guide</a>
+      <a href="https://github.com/liteskill-io/liteskill-vr">Source</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <div class="hero-text">
+      <p class="hero-tag">// structured notebook for RE research</p>
+      <h1>LiteSkill VR</h1>
+      <p class="hero-lede">
+        A desktop application with a built-in MCP server for methodical,
+        structured vulnerability-research documentation. Humans and AI agents
+        record what they find — items, notes, findings, and the connections
+        between them — into one shareable <code>.lsvr</code> file. Built with
+        Tauri v2, React, and TypeScript.
+      </p>
+      <p>
+        <a class="cta" href="guide/introduction.html">Read the guide →</a>
+        <a class="cta ghost" href="guide/installation.html">Install it</a>
+      </p>
+    </div>
+    <img src="assets/logo.svg" alt="LiteSkill VR logo" class="hero-img">
+  </section>
+
+  <main class="content" style="max-width: 1080px; margin: 0 auto; padding: 2rem 2.5rem 3rem;">
+    <h2>The pitch</h2>
+    <blockquote>
+      <p>
+        As a cybersecurity researcher using AI, my life is a mess of markdown
+        files and hard-to-read chat histories. I wish there were a standard
+        format I could give to my agents that would let me easily view status —
+        and a single file I could share with others or save for future reference.
+      </p>
+    </blockquote>
+
+    <figure>
+      <img src="assets/dashboard.png" alt="LiteSkill VR dashboard with a demo project loaded"
+           style="width:100%;border:1px solid var(--border-2);border-radius:8px;box-shadow:0 0 40px rgba(61,255,166,0.12);">
+    </figure>
+
+    <h2>What's in the box</h2>
+    <ul>
+      <li><strong>Structured research database</strong> — items, notes, items of interest, and connections, all in one project.</li>
+      <li><strong>Read-write MCP server</strong> — 31 tools so Claude Code or Codex can query and document alongside you.</li>
+      <li><strong>Registered vocabularies</strong> — tags and connection types registered up front to stop drift across sessions.</li>
+      <li><strong>Full-text search &amp; structured filters</strong> — SQLite FTS5 across every entity.</li>
+      <li><strong>Connection map</strong> — a Cytoscape.js graph of how components relate across an image.</li>
+      <li><strong>One file per project</strong> — a standalone <code>.lsvr</code> SQLite database; easy to back up or share.</li>
+      <li><strong>Headless MCP binary</strong> — <code>liteskillvr-mcp</code> runs the same interface with no GUI for CI and servers.</li>
+      <li><strong>Offline-first</strong> — everything stored locally; no cloud sync.</li>
+    </ul>
+
+    <h2>Start here</h2>
+    <div class="tiles">
+      <a class="tile" href="guide/introduction.html">
+        <span class="tile-label">01 // Read</span>
+        <span class="tile-title">Introduction</span>
+        <span class="tile-desc">What LiteSkill VR is, its goals and non-goals.</span>
+      </a>
+      <a class="tile" href="guide/installation.html">
+        <span class="tile-label">02 // Install</span>
+        <span class="tile-title">Installation</span>
+        <span class="tile-desc">Pre-built packages for Linux, macOS, and Windows.</span>
+      </a>
+      <a class="tile" href="guide/first-project.html">
+        <span class="tile-label">03 // Run</span>
+        <span class="tile-title">Your first project</span>
+        <span class="tile-desc">From a fresh install to your first finding.</span>
+      </a>
+      <a class="tile" href="guide/agents.html">
+        <span class="tile-label">04 // Agents</span>
+        <span class="tile-title">Working with AI agents</span>
+        <span class="tile-desc">Connect Claude Code or Codex over MCP.</span>
+      </a>
+      <a class="tile" href="guide/data-model.html">
+        <span class="tile-label">// Model</span>
+        <span class="tile-title">Data model</span>
+        <span class="tile-desc">Items, notes, IOIs, connections, tags.</span>
+      </a>
+      <a class="tile" href="guide/index.html">
+        <span class="tile-label">// Full</span>
+        <span class="tile-title">Guide index</span>
+        <span class="tile-desc">Every chapter, in order.</span>
+      </a>
+    </div>
+
+    <h2>Run it</h2>
+<pre data-lang="bash"><code>pnpm install
+pnpm tauri dev</code></pre>
+  </main>
+
+  <footer class="sitefoot">
+    <p>LiteSkill VR · <a href="https://liteskill.io">liteskill.io</a> · <a href="https://github.com/liteskill-io/liteskill-vr">github.com/liteskill-io/liteskill-vr</a></p>
+  </footer>
+</body>
+</html>

@@ -6,6 +6,8 @@
 
 <p align="center">
   <a href="https://liteskill.io">liteskill.io</a>
+  ·
+  <a href="https://liteskill-io.github.io/liteskill-vr/">Documentation</a>
 </p>
 
 <p align="center">
@@ -15,6 +17,9 @@
 <p align="center">
   <img src="src/assets/dashboard.png" alt="LiteSkill VR dashboard with demo project loaded" />
 </p>
+
+📖 **[Read the documentation](https://liteskill-io.github.io/liteskill-vr/)** — installation,
+a first-project walkthrough, the interface, working with AI agents over MCP, and the full reference.
 
 See [spec/](spec/) for detailed design documents.
 
