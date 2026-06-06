@@ -29,9 +29,84 @@ pub fn list_all() -> Vec<Value> {
     tools.extend(note_tools());
     tools.extend(ioi_tools());
     tools.extend(connection_tools());
+    tools.extend(explanation_tools());
     tools.extend(search_tools());
     tools.extend(bulk_tools());
     tools
+}
+
+fn explanation_tools() -> Vec<Value> {
+    let claim_item = json!({
+        "type": "object",
+        "properties": {
+            "stable_key": {"type": "string", "description": "Stable id for idempotent re-runs, e.g. claim.auth.uses_rsa"},
+            "text": {"type": "string"},
+            "claim_type": {"type": "string", "enum": ["behavior", "invariant", "constraint", "assumption", "hypothesis", "security_relevant", "finding_context", "unknown"]},
+            "status": {"type": "string", "enum": ["hypothesis", "supported", "refuted"]},
+            "confidence": {"type": "string", "enum": ["low", "medium", "high"]}
+        },
+        "required": ["stable_key", "text"]
+    });
+    let question_item = json!({
+        "type": "object",
+        "properties": {
+            "stable_key": {"type": "string"},
+            "question": {"type": "string"},
+            "priority": {"type": "string", "enum": ["low", "medium", "high"]},
+            "status": {"type": "string", "enum": ["open", "answered", "blocked", "superseded"]}
+        },
+        "required": ["stable_key", "question"]
+    });
+    vec![
+        tool(
+            "explanation_upsert",
+            "Create or update an Explanation (how a system works) by stable_key, with its claims and open questions, all-or-nothing. Keep `summary` a short TL;DR; put the substance in claims (each evidence-backed via evidence_link) and record unknowns as open_questions. Re-running with the same stable_keys updates in place. Returns the explanation plus advisory warnings.",
+            &json!({
+                "stable_key": {"type": "string", "description": "Stable id, unique per project, e.g. explanation.auth_flow"},
+                "title": {"type": "string"},
+                "explanation_type": {"type": "string", "enum": ["architecture", "protocol", "packet_format", "state_machine", "control_flow", "data_flow", "memory_layout", "object_lifecycle", "api_surface", "threat_model", "custom"]},
+                "summary": {"type": "string", "description": "Short TL;DR — NOT a wall of prose; use claims for substance"},
+                "status": {"type": "string", "enum": ["draft", "reviewed"]},
+                "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+                "tags": {"type": "array", "items": {"type": "string"}, "description": "Registered tag names"},
+                "scope_item_ids": {"type": "array", "items": {"type": "string"}, "description": "Item ids this explanation covers (linked via 'explains' connections)"},
+                "claims": {"type": "array", "items": claim_item},
+                "open_questions": {"type": "array", "items": question_item}
+            }),
+            &["stable_key", "title"],
+        ),
+        tool(
+            "explanation_get",
+            "Get one explanation with its claims, open questions, evidence, and scope.",
+            &json!({"id": {"type": "string"}}),
+            &["id"],
+        ),
+        tool(
+            "explanation_list",
+            "List explanations with child counts. Optional filters by type and status.",
+            &json!({
+                "explanation_type": {"type": "string"},
+                "status": {"type": "string", "enum": ["draft", "reviewed"]}
+            }),
+            &[],
+        ),
+        tool(
+            "evidence_link",
+            "Attach evidence to an explanation, a claim, or a finding. Source is EITHER an existing entity (source_entity_type + source_entity_id) OR a free-text external_locator (+external_kind) such as a Ghidra symbol, address, or pcap packet.",
+            &json!({
+                "target_type": {"type": "string", "enum": ["explanation", "claim", "finding"]},
+                "target_id": {"type": "string"},
+                "source_entity_type": {"type": "string", "enum": ["item", "item_of_interest", "note", "connection", "explanation"]},
+                "source_entity_id": {"type": "string"},
+                "external_locator": {"type": "string", "description": "e.g. FUN_00401000+0x14, pcap:42"},
+                "external_kind": {"type": "string", "enum": ["ghidra", "address", "pcap", "decompilation", "disassembly", "log", "test_case", "other"]},
+                "evidence_type": {"type": "string", "enum": ["static_analysis", "dynamic_trace", "decompilation", "disassembly", "packet_capture", "test_case", "runtime_log", "human_observation", "agent_inference"]},
+                "strength": {"type": "string", "enum": ["weak", "moderate", "strong"]},
+                "excerpt": {"type": "string"}
+            }),
+            &["target_type", "target_id"],
+        ),
+    ]
 }
 
 fn project_tools() -> Vec<Value> {

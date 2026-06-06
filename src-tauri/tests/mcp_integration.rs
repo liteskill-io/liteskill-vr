@@ -790,3 +790,100 @@ async fn full_agent_session() {
     assert_eq!(summary["severity_summary"]["critical"], 2);
     assert_eq!(summary["severity_summary"]["high"], 1);
 }
+
+#[tokio::test]
+async fn explanation_lifecycle() {
+    let s = TestServer::start().await;
+
+    let item = s
+        .tool("item_create", json!({"name": "httpd", "item_type": "elf"}))
+        .await;
+    let item_id = item["id"].as_str().unwrap().to_string();
+
+    // Create an explanation with a claim + open question, scoped to the item.
+    let res = s
+        .tool(
+            "explanation_upsert",
+            json!({
+                "stable_key": "explanation.auth",
+                "title": "Auth flow",
+                "explanation_type": "state_machine",
+                "summary": "short tldr",
+                "scope_item_ids": [item_id],
+                "claims": [{"stable_key": "claim.rsa", "text": "Auth uses RSA"}],
+                "open_questions": [{"stable_key": "q.bound", "question": "Length bounded?", "priority": "high"}]
+            }),
+        )
+        .await;
+    let expl_id = res["explanation"]["id"].as_str().unwrap().to_string();
+    let claim_id = res["explanation"]["claims"][0]["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    // The unbacked-claim guardrail warning is present.
+    assert!(res["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|w| w.as_str().unwrap().contains("no linked evidence")));
+
+    // Attach external-locator evidence to the claim.
+    s.tool(
+        "evidence_link",
+        json!({
+            "target_type": "claim",
+            "target_id": claim_id,
+            "external_locator": "FUN_00401000+0x14",
+            "external_kind": "ghidra",
+            "evidence_type": "decompilation",
+            "strength": "strong"
+        }),
+    )
+    .await;
+
+    // Re-run with the same stable_keys: idempotent (same id), claim updated, and
+    // the unbacked warning now cleared.
+    let res2 = s
+        .tool(
+            "explanation_upsert",
+            json!({
+                "stable_key": "explanation.auth",
+                "title": "Authentication flow",
+                "claims": [{"stable_key": "claim.rsa", "text": "Auth uses RSA-2048"}]
+            }),
+        )
+        .await;
+    assert_eq!(res2["explanation"]["id"].as_str().unwrap(), expl_id);
+    assert!(!res2["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|w| w.as_str().unwrap().contains("no linked evidence")));
+
+    // explanation_get reflects the update, evidence, and scope.
+    let got = s.tool("explanation_get", json!({"id": expl_id})).await;
+    assert_eq!(got["title"], "Authentication flow");
+    assert_eq!(got["claims"][0]["text"], "Auth uses RSA-2048");
+    assert_eq!(got["evidence"].as_array().unwrap().len(), 1);
+    assert_eq!(got["scope_item_ids"][0].as_str().unwrap(), item_id);
+
+    // Discovery surfaces (list, project_summary, filter).
+    assert_eq!(
+        s.tool("explanation_list", json!({}))
+            .await
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    let summary = s.tool("project_summary", json!({})).await;
+    assert_eq!(summary["explanations"].as_array().unwrap().len(), 1);
+    assert_eq!(summary["open_questions"].as_array().unwrap().len(), 1);
+    let qs = s
+        .tool(
+            "filter",
+            json!({"entity_type": "open_question", "priority": "high"}),
+        )
+        .await;
+    assert_eq!(qs.as_array().unwrap().len(), 1);
+}

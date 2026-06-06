@@ -169,6 +169,133 @@ CREATE TRIGGER IF NOT EXISTS conn_au AFTER UPDATE ON connections BEGIN
     INSERT INTO fts_connections(fts_connections, rowid, id, description) VALUES ('delete', old.rowid, old.id, old.description);
     INSERT INTO fts_connections(rowid, id, description) VALUES (new.rowid, new.id, new.description);
 END;
+
+-- ===================================================================
+-- Explanation layer: evidence-backed 'how this works' models.
+-- A model envelope (explanations) + claims + open_questions, with
+-- fine-grained evidence_links. Coarse links (scope, finding-context)
+-- reuse the connections table via 'explanation' source/target types.
+-- ===================================================================
+
+CREATE TABLE IF NOT EXISTS explanations (
+    id TEXT PRIMARY KEY,
+    stable_key TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    explanation_type TEXT NOT NULL DEFAULT 'custom',
+    summary TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'draft',
+    confidence TEXT NOT NULL DEFAULT 'medium',
+    author TEXT NOT NULL,
+    author_type TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS explanation_tags (
+    explanation_id TEXT NOT NULL REFERENCES explanations(id) ON DELETE CASCADE,
+    tag_name TEXT NOT NULL REFERENCES tags(name) ON DELETE CASCADE,
+    PRIMARY KEY (explanation_id, tag_name)
+);
+
+CREATE TABLE IF NOT EXISTS claims (
+    id TEXT PRIMARY KEY,
+    explanation_id TEXT NOT NULL REFERENCES explanations(id) ON DELETE CASCADE,
+    stable_key TEXT NOT NULL,
+    text TEXT NOT NULL,
+    claim_type TEXT NOT NULL DEFAULT 'behavior',
+    status TEXT NOT NULL DEFAULT 'hypothesis',
+    confidence TEXT NOT NULL DEFAULT 'medium',
+    author TEXT NOT NULL,
+    author_type TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE (explanation_id, stable_key)
+);
+
+CREATE TABLE IF NOT EXISTS open_questions (
+    id TEXT PRIMARY KEY,
+    explanation_id TEXT NOT NULL REFERENCES explanations(id) ON DELETE CASCADE,
+    stable_key TEXT NOT NULL,
+    question TEXT NOT NULL,
+    priority TEXT NOT NULL DEFAULT 'medium',
+    status TEXT NOT NULL DEFAULT 'open',
+    answer_claim_id TEXT,
+    author TEXT NOT NULL,
+    author_type TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE (explanation_id, stable_key)
+);
+
+-- Fine-grained evidence: target is an explanation/claim/finding; source is
+-- EITHER an existing entity OR a free-text external locator (Ghidra symbol,
+-- address, pcap packet, log line).
+CREATE TABLE IF NOT EXISTS evidence_links (
+    id TEXT PRIMARY KEY,
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    source_entity_type TEXT,
+    source_entity_id TEXT,
+    external_locator TEXT,
+    external_kind TEXT,
+    evidence_type TEXT NOT NULL DEFAULT 'agent_inference',
+    strength TEXT NOT NULL DEFAULT 'moderate',
+    excerpt TEXT,
+    author TEXT NOT NULL,
+    author_type TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_claims_explanation ON claims(explanation_id);
+CREATE INDEX IF NOT EXISTS idx_questions_explanation ON open_questions(explanation_id);
+CREATE INDEX IF NOT EXISTS idx_evidence_target ON evidence_links(target_type, target_id);
+
+-- Cascade cleanup of polymorphic references on delete.
+CREATE TRIGGER IF NOT EXISTS explanations_delete_connections AFTER DELETE ON explanations BEGIN
+    DELETE FROM connections WHERE
+        (source_id = old.id AND source_type = 'explanation') OR
+        (target_id = old.id AND target_type = 'explanation');
+END;
+CREATE TRIGGER IF NOT EXISTS explanations_delete_evidence AFTER DELETE ON explanations BEGIN
+    DELETE FROM evidence_links WHERE target_type = 'explanation' AND target_id = old.id;
+END;
+CREATE TRIGGER IF NOT EXISTS claims_delete_evidence AFTER DELETE ON claims BEGIN
+    DELETE FROM evidence_links WHERE target_type = 'claim' AND target_id = old.id;
+END;
+CREATE TRIGGER IF NOT EXISTS ioi_delete_evidence AFTER DELETE ON items_of_interest BEGIN
+    DELETE FROM evidence_links WHERE target_type = 'finding' AND target_id = old.id;
+END;
+
+-- FTS for explanations + claims (kept fresh by triggers; search wiring is
+-- deferred but the index stays current so it's there when needed).
+CREATE VIRTUAL TABLE IF NOT EXISTS fts_explanations USING fts5(
+    id UNINDEXED, title, summary, content=explanations, content_rowid=rowid
+);
+CREATE VIRTUAL TABLE IF NOT EXISTS fts_claims USING fts5(
+    id UNINDEXED, explanation_id UNINDEXED, text, content=claims, content_rowid=rowid
+);
+
+CREATE TRIGGER IF NOT EXISTS expl_ai AFTER INSERT ON explanations BEGIN
+    INSERT INTO fts_explanations(rowid, id, title, summary) VALUES (new.rowid, new.id, new.title, new.summary);
+END;
+CREATE TRIGGER IF NOT EXISTS expl_ad AFTER DELETE ON explanations BEGIN
+    INSERT INTO fts_explanations(fts_explanations, rowid, id, title, summary) VALUES ('delete', old.rowid, old.id, old.title, old.summary);
+END;
+CREATE TRIGGER IF NOT EXISTS expl_au AFTER UPDATE ON explanations BEGIN
+    INSERT INTO fts_explanations(fts_explanations, rowid, id, title, summary) VALUES ('delete', old.rowid, old.id, old.title, old.summary);
+    INSERT INTO fts_explanations(rowid, id, title, summary) VALUES (new.rowid, new.id, new.title, new.summary);
+END;
+
+CREATE TRIGGER IF NOT EXISTS claim_ai AFTER INSERT ON claims BEGIN
+    INSERT INTO fts_claims(rowid, id, explanation_id, text) VALUES (new.rowid, new.id, new.explanation_id, new.text);
+END;
+CREATE TRIGGER IF NOT EXISTS claim_ad AFTER DELETE ON claims BEGIN
+    INSERT INTO fts_claims(fts_claims, rowid, id, explanation_id, text) VALUES ('delete', old.rowid, old.id, old.explanation_id, old.text);
+END;
+CREATE TRIGGER IF NOT EXISTS claim_au AFTER UPDATE ON claims BEGIN
+    INSERT INTO fts_claims(fts_claims, rowid, id, explanation_id, text) VALUES ('delete', old.rowid, old.id, old.explanation_id, old.text);
+    INSERT INTO fts_claims(rowid, id, explanation_id, text) VALUES (new.rowid, new.id, new.explanation_id, new.text);
+END;
 ";
 
 const DEFAULT_TAGS: &[(&str, &str)] = &[
@@ -204,12 +331,30 @@ const DEFAULT_CONNECTION_TYPES: &[(&str, &str)] = &[
     ("writes_config", "Source writes/modifies target config file"),
     ("spawns", "Source starts target as a process/daemon"),
     ("related", "Loose association worth tracking"),
+    (
+        "explains",
+        "Source explanation explains/covers the target item",
+    ),
+    (
+        "affects",
+        "Source finding affects or relates to the target explanation",
+    ),
 ];
 
-const MIGRATIONS: &[(&str, &str)] = &[(
-    "001_add_ioi_status",
-    "ALTER TABLE items_of_interest ADD COLUMN status TEXT NOT NULL DEFAULT 'draft';",
-)];
+const MIGRATIONS: &[(&str, &str)] = &[
+    (
+        "001_add_ioi_status",
+        "ALTER TABLE items_of_interest ADD COLUMN status TEXT NOT NULL DEFAULT 'draft';",
+    ),
+    // Seed the explanation-layer connection types into pre-existing databases
+    // (new databases get them via DEFAULT_CONNECTION_TYPES in seed_defaults).
+    (
+        "002_seed_explanation_connection_types",
+        "INSERT OR IGNORE INTO connection_types (id, name, description, created_at) VALUES
+            (lower(hex(randomblob(16))), 'explains', 'Source explanation explains/covers the target item', strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+            (lower(hex(randomblob(16))), 'affects', 'Source finding affects or relates to the target explanation', strftime('%Y-%m-%dT%H:%M:%SZ','now'));",
+    ),
+];
 
 pub fn run_migrations(conn: &Connection) -> Result<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL;")?;

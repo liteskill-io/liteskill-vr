@@ -2,7 +2,10 @@ use serde::Serialize;
 use serde_json::{json, Value};
 
 use crate::db::error::DbError;
-use crate::db::{Database, NewConnection, NewIoi, SearchFilters};
+use crate::db::{
+    ClaimInput, Database, ExplanationInput, NewConnection, NewEvidence, NewIoi, QuestionInput,
+    SearchFilters,
+};
 
 pub type HandlerResult = Result<Value, String>;
 
@@ -195,6 +198,21 @@ pub fn dispatch(db: &Database, tool_name: &str, params: &Value, author: &str) ->
             Ok(json!({"deleted": true}))
         }
 
+        // Explanations
+        "explanation_upsert" => handle_explanation_upsert(db, params, author),
+        "explanation_get" => {
+            let id = param_str_required(params, "id")?;
+            serialize(db.explanation_get(id).map_err(db_err)?)
+        }
+        "explanation_list" => serialize(
+            db.explanation_list(
+                param_str(params, "explanation_type"),
+                param_str(params, "status"),
+            )
+            .map_err(db_err)?,
+        ),
+        "evidence_link" => handle_evidence_link(db, params, author),
+
         // Search & Filter
         "search" => {
             let query = param_str_required(params, "query")?;
@@ -250,6 +268,8 @@ fn handle_project_summary(db: &Database) -> HandlerResult {
     }
 
     let recent = db.recent_activity(10).map_err(db_err)?;
+    let explanations = db.explanation_list(None, None).map_err(db_err)?;
+    let open_questions = db.open_questions_list(None, Some("open")).map_err(db_err)?;
 
     Ok(json!({
         "items": serde_json::to_value(&items).unwrap_or_default(),
@@ -257,6 +277,8 @@ fn handle_project_summary(db: &Database) -> HandlerResult {
         "tags": serde_json::to_value(&tags).unwrap_or_default(),
         "connection_types": serde_json::to_value(&conn_types).unwrap_or_default(),
         "recent_activity": serde_json::to_value(&recent).unwrap_or_default(),
+        "explanations": serde_json::to_value(&explanations).unwrap_or_default(),
+        "open_questions": serde_json::to_value(&open_questions).unwrap_or_default(),
     }))
 }
 
@@ -544,6 +566,103 @@ fn handle_filter(db: &Database, params: &Value) -> HandlerResult {
             db.filter_connections(param_str(params, "connection_type"), author_type)
                 .map_err(db_err)?,
         ),
+        "explanation" => serialize(
+            db.explanation_list(
+                param_str(params, "explanation_type"),
+                param_str(params, "status"),
+            )
+            .map_err(db_err)?,
+        ),
+        "open_question" => serialize(
+            db.open_questions_list(param_str(params, "priority"), param_str(params, "status"))
+                .map_err(db_err)?,
+        ),
         other => Err(format!("Unknown entity_type '{other}'")),
     }
+}
+
+// --- Explanations ---
+
+fn parse_claims(params: &Value) -> Result<Vec<ClaimInput>, String> {
+    let Some(arr) = params.get("claims").and_then(Value::as_array) else {
+        return Ok(Vec::new());
+    };
+    arr.iter()
+        .enumerate()
+        .map(|(i, c)| {
+            Ok(ClaimInput {
+                stable_key: param_str(c, "stable_key")
+                    .ok_or_else(|| format!("claims[{i}]: missing 'stable_key'"))?
+                    .to_string(),
+                text: param_str(c, "text")
+                    .ok_or_else(|| format!("claims[{i}]: missing 'text'"))?
+                    .to_string(),
+                claim_type: param_str(c, "claim_type").map(String::from),
+                status: param_str(c, "status").map(String::from),
+                confidence: param_str(c, "confidence").map(String::from),
+            })
+        })
+        .collect()
+}
+
+fn parse_questions(params: &Value) -> Result<Vec<QuestionInput>, String> {
+    let Some(arr) = params.get("open_questions").and_then(Value::as_array) else {
+        return Ok(Vec::new());
+    };
+    arr.iter()
+        .enumerate()
+        .map(|(i, q)| {
+            Ok(QuestionInput {
+                stable_key: param_str(q, "stable_key")
+                    .ok_or_else(|| format!("open_questions[{i}]: missing 'stable_key'"))?
+                    .to_string(),
+                question: param_str(q, "question")
+                    .ok_or_else(|| format!("open_questions[{i}]: missing 'question'"))?
+                    .to_string(),
+                priority: param_str(q, "priority").map(String::from),
+                status: param_str(q, "status").map(String::from),
+            })
+        })
+        .collect()
+}
+
+fn handle_explanation_upsert(db: &Database, params: &Value, author: &str) -> HandlerResult {
+    let input = ExplanationInput {
+        stable_key: param_str_required(params, "stable_key")?.to_string(),
+        title: param_str_required(params, "title")?.to_string(),
+        explanation_type: param_str(params, "explanation_type")
+            .unwrap_or("custom")
+            .to_string(),
+        summary: param_str(params, "summary").unwrap_or("").to_string(),
+        status: param_str(params, "status").map(String::from),
+        confidence: param_str(params, "confidence").map(String::from),
+        tags: param_tags(params, "tags"),
+        scope_item_ids: param_tags(params, "scope_item_ids"),
+        claims: parse_claims(params)?,
+        open_questions: parse_questions(params)?,
+        author: author.to_string(),
+    };
+    let res = db.explanation_upsert(&input).map_err(db_err)?;
+    Ok(json!({
+        "explanation": serde_json::to_value(&res.detail).unwrap_or_default(),
+        "warnings": res.warnings,
+    }))
+}
+
+fn handle_evidence_link(db: &Database, params: &Value, author: &str) -> HandlerResult {
+    let target_type = param_str_required(params, "target_type")?;
+    let target_id = param_str_required(params, "target_id")?;
+    let evidence = NewEvidence {
+        target_type,
+        target_id,
+        source_entity_type: param_str(params, "source_entity_type"),
+        source_entity_id: param_str(params, "source_entity_id"),
+        external_locator: param_str(params, "external_locator"),
+        external_kind: param_str(params, "external_kind"),
+        evidence_type: param_str(params, "evidence_type").unwrap_or("agent_inference"),
+        strength: param_str(params, "strength").unwrap_or("moderate"),
+        excerpt: param_str(params, "excerpt"),
+        author,
+    };
+    serialize(db.evidence_link(&evidence).map_err(db_err)?)
 }

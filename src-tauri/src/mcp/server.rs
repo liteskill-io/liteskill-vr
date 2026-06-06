@@ -127,6 +127,8 @@ const MUTATION_TOOLS: &[&str] = &[
     "connection_create",
     "connection_create_batch",
     "connection_delete",
+    "explanation_upsert",
+    "evidence_link",
     "bulk_delete",
 ];
 

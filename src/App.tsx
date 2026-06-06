@@ -3,6 +3,7 @@ import { useEffect } from "react";
 
 import { ConnectionMap } from "@/components/ConnectionMap";
 import { Dashboard } from "@/components/Dashboard";
+import { Explanations } from "@/components/Explanations";
 import { ItemDetail } from "@/components/ItemDetail";
 import { Sidebar } from "@/components/Sidebar";
 import { StatusBar } from "@/components/StatusBar";
@@ -66,6 +67,8 @@ function App(): React.JSX.Element {
     <ItemDetail id={activeTab} />
   ) : rootView === "connections" ? (
     <ConnectionMap />
+  ) : rootView === "explanations" ? (
+    <Explanations />
   ) : (
     <Dashboard />
   );

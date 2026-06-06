@@ -24,6 +24,16 @@ pub fn project_snapshot(db: State<'_, DbState>) -> Result<Value, String> {
     }
     let tags = db.tag_list().map_err(|e| e.to_string())?;
     let connection_types = db.connection_type_list().map_err(|e| e.to_string())?;
+
+    // Explanations: list summaries + full detail each (small N, like items).
+    let explanations = db.explanation_list(None, None).map_err(|e| e.to_string())?;
+    let mut explanation_details = Vec::with_capacity(explanations.len());
+    for summary in &explanations {
+        let detail = db
+            .explanation_get(&summary.explanation.id)
+            .map_err(|e| e.to_string())?;
+        explanation_details.push(detail);
+    }
     drop(db);
 
     serde_json::to_value(serde_json::json!({
@@ -31,6 +41,8 @@ pub fn project_snapshot(db: State<'_, DbState>) -> Result<Value, String> {
         "details": details,
         "tags": tags,
         "connection_types": connection_types,
+        "explanations": explanations,
+        "explanation_details": explanation_details,
         "mcp_port": crate::MCP_PORT,
     }))
     .map_err(|e| e.to_string())

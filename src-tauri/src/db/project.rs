@@ -2,7 +2,7 @@ use rusqlite::params;
 use serde::{Deserialize, Serialize};
 
 use super::error::{DbError, Result};
-use super::models::Project;
+use super::models::{Explanation, Project};
 use super::Database;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,6 +38,7 @@ pub struct ChangesSince {
     pub items: Vec<ChangedItem>,
     pub notes: Vec<ChangedNote>,
     pub items_of_interest: Vec<ChangedIoi>,
+    pub explanations: Vec<Explanation>,
 }
 
 /// The most recently touched entities, newest first — surfaced by
@@ -124,10 +125,34 @@ impl Database {
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
 
+        let mut expl_stmt = self.conn.prepare(
+            "SELECT id, stable_key, title, explanation_type, summary, status, confidence,
+                    author, author_type, created_at, updated_at
+             FROM explanations WHERE created_at >= ?1 OR updated_at >= ?1 ORDER BY updated_at",
+        )?;
+        let explanations = expl_stmt
+            .query_map(params![since], |row| {
+                Ok(Explanation {
+                    id: row.get(0)?,
+                    stable_key: row.get(1)?,
+                    title: row.get(2)?,
+                    explanation_type: row.get(3)?,
+                    summary: row.get(4)?,
+                    status: row.get(5)?,
+                    confidence: row.get(6)?,
+                    author: row.get(7)?,
+                    author_type: row.get(8)?,
+                    created_at: row.get(9)?,
+                    updated_at: row.get(10)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
         Ok(ChangesSince {
             items,
             notes,
             items_of_interest: iois,
+            explanations,
         })
     }
 

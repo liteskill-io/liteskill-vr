@@ -117,6 +117,94 @@ pub struct ItemDetail {
     pub connections: Vec<Connection>,
 }
 
+// --- Explanation layer ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Explanation {
+    pub id: String,
+    pub stable_key: String,
+    pub title: String,
+    pub explanation_type: String,
+    pub summary: String,
+    pub status: String,
+    pub confidence: String,
+    pub author: String,
+    pub author_type: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Claim {
+    pub id: String,
+    pub explanation_id: String,
+    pub stable_key: String,
+    pub text: String,
+    pub claim_type: String,
+    pub status: String,
+    pub confidence: String,
+    pub author: String,
+    pub author_type: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenQuestion {
+    pub id: String,
+    pub explanation_id: String,
+    pub stable_key: String,
+    pub question: String,
+    pub priority: String,
+    pub status: String,
+    pub answer_claim_id: Option<String>,
+    pub author: String,
+    pub author_type: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvidenceLink {
+    pub id: String,
+    pub target_type: String,
+    pub target_id: String,
+    pub source_entity_type: Option<String>,
+    pub source_entity_id: Option<String>,
+    pub external_locator: Option<String>,
+    pub external_kind: Option<String>,
+    pub evidence_type: String,
+    pub strength: String,
+    pub excerpt: Option<String>,
+    pub author: String,
+    pub author_type: String,
+    pub created_at: String,
+}
+
+/// Listing row for an explanation, with child counts (no children inlined).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExplanationSummary {
+    #[serde(flatten)]
+    pub explanation: Explanation,
+    pub tags: Vec<String>,
+    pub scope_item_ids: Vec<String>,
+    pub claim_count: i64,
+    pub open_question_count: i64,
+    pub evidence_count: i64,
+}
+
+/// Full explanation with its claims, open questions, evidence, and scope.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExplanationDetail {
+    #[serde(flatten)]
+    pub explanation: Explanation,
+    pub tags: Vec<String>,
+    pub scope_item_ids: Vec<String>,
+    pub claims: Vec<Claim>,
+    pub open_questions: Vec<OpenQuestion>,
+    pub evidence: Vec<EvidenceLink>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResult {
     pub entity_type: String,

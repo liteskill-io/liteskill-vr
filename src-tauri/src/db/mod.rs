@@ -1,6 +1,8 @@
 mod connection_types;
 mod connections;
 pub mod error;
+mod evidence;
+mod explanation;
 mod ioi;
 mod items;
 pub mod migrations;
@@ -11,6 +13,8 @@ mod search;
 mod tags;
 
 pub use connections::NewConnection;
+pub use evidence::NewEvidence;
+pub use explanation::{ClaimInput, ExplanationInput, QuestionInput};
 pub use ioi::NewIoi;
 pub use search::SearchFilters;
 

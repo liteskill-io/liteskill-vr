@@ -2,13 +2,15 @@ import { create } from "zustand";
 
 import type {
   ConnectionType,
+  ExplanationDetail,
+  ExplanationSummary,
   ItemDetail,
   ItemSummary,
   ProjectSnapshot,
   Tag,
 } from "./types";
 
-type RootView = "dashboard" | "connections";
+type RootView = "dashboard" | "connections" | "explanations";
 
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2.0;
@@ -33,12 +35,16 @@ interface AppState {
   itemDetails: Record<string, ItemDetail>;
   tags: Tag[];
   connectionTypes: ConnectionType[];
+  explanations: ExplanationSummary[];
+  explanationDetails: Record<string, ExplanationDetail>;
   mcpPort: number | null;
 
   openTabs: string[];
   activeTab: string | null;
   // Which root view to render when no item tab is active.
   rootView: RootView;
+  // Selected explanation when rootView === "explanations" (null = list view).
+  selectedExplanation: string | null;
 
   // App-wide zoom, applied via CSS `zoom` on <body>. Persisted per-install.
   zoom: number;
@@ -49,6 +55,8 @@ interface AppState {
   setActiveTab: (id: string | null) => void;
   showDashboard: () => void;
   showConnectionMap: () => void;
+  showExplanations: () => void;
+  openExplanation: (id: string) => void;
   zoomIn: () => void;
   zoomOut: () => void;
   resetZoom: () => void;
@@ -59,10 +67,13 @@ export const useStore = create<AppState>((set) => ({
   itemDetails: {},
   tags: [],
   connectionTypes: [],
+  explanations: [],
+  explanationDetails: {},
   mcpPort: null,
   openTabs: [],
   activeTab: null,
   rootView: "dashboard",
+  selectedExplanation: null,
   zoom: loadZoom(),
 
   applySnapshot: (snapshot): void => {
@@ -70,11 +81,17 @@ export const useStore = create<AppState>((set) => ({
     for (const detail of snapshot.details) {
       itemDetails[detail.item.id] = detail;
     }
+    const explanationDetails: Record<string, ExplanationDetail> = {};
+    for (const detail of snapshot.explanation_details) {
+      explanationDetails[detail.id] = detail;
+    }
     set({
       items: snapshot.items,
       itemDetails,
       tags: snapshot.tags,
       connectionTypes: snapshot.connection_types,
+      explanations: snapshot.explanations,
+      explanationDetails,
       mcpPort: snapshot.mcp_port,
     });
   },
@@ -111,6 +128,18 @@ export const useStore = create<AppState>((set) => ({
 
   showConnectionMap: (): void => {
     set({ activeTab: null, rootView: "connections" });
+  },
+
+  showExplanations: (): void => {
+    set({
+      activeTab: null,
+      rootView: "explanations",
+      selectedExplanation: null,
+    });
+  },
+
+  openExplanation: (id): void => {
+    set({ activeTab: null, rootView: "explanations", selectedExplanation: id });
   },
 
   zoomIn: (): void => {

@@ -110,6 +110,11 @@ Frontend conventions, all enforced by `task check:fe`:
 - **One `.lsvr` file = one project** (SQLite, FTS5 full-text search).
 - Entities: items, notes, items-of-interest, connections, tags, connection
   types. See `spec/data-model.md`.
+- **Explanations** are the knowledge layer — evidence-backed models of how a
+  system works (envelope + claims + open questions + evidence links), upserted
+  by `stable_key`. New code lives in `src-tauri/src/db/explanation.rs` and
+  `src-tauri/src/db/evidence.rs`; tools are `explanation_upsert`/`_get`/`_list`
+  and `evidence_link`. See `spec/explanations.md`.
 - **Author identity is never passed per call.** Over HTTP it comes from the
   `X-LiteSkill-Author` header (default `anonymous-agent`); over stdio it's
   `stdio-agent`; UI writes use the OS username. See `spec/mcp.md`.

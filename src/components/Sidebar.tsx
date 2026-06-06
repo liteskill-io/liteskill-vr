@@ -49,10 +49,13 @@ export function Sidebar(): React.JSX.Element {
   const openTab = useStore((s) => s.openTab);
   const showDashboard = useStore((s) => s.showDashboard);
   const showConnectionMap = useStore((s) => s.showConnectionMap);
+  const showExplanations = useStore((s) => s.showExplanations);
+  const explanationCount = useStore((s) => s.explanations.length);
   const itemDetails = useStore((s) => s.itemDetails);
 
   const onDashboard = activeTab === null && rootView === "dashboard";
   const onConnections = activeTab === null && rootView === "connections";
+  const onExplanations = activeTab === null && rootView === "explanations";
 
   const groups = groupBySeverity(items, itemDetails);
   const hasFindings = Object.values(groups).some((g) => g.length > 0);
@@ -89,11 +92,23 @@ export function Sidebar(): React.JSX.Element {
       <button
         type="button"
         onClick={showConnectionMap}
-        className={`w-full border-b border-border px-3 py-2 text-left text-[10px] font-bold tracking-[0.2em] uppercase transition-colors hover:bg-surface-hover ${
+        className={`w-full px-3 py-2 text-left text-[10px] font-bold tracking-[0.2em] uppercase transition-colors hover:bg-surface-hover ${
           onConnections ? "text-accent" : "text-text-dim"
         }`}
       >
         ⬡ Connection Map
+      </button>
+      <button
+        type="button"
+        onClick={showExplanations}
+        className={`flex w-full items-center justify-between border-b border-border px-3 py-2 text-left text-[10px] font-bold tracking-[0.2em] uppercase transition-colors hover:bg-surface-hover ${
+          onExplanations ? "text-accent" : "text-text-dim"
+        }`}
+      >
+        <span>✦ Explanations</span>
+        {explanationCount > 0 && (
+          <span className="tabular-nums">{explanationCount}</span>
+        )}
       </button>
 
       {/* Severity groups */}

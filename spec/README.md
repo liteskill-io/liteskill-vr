@@ -9,6 +9,7 @@ A structured notebook for reverse engineering research. Tauri + TypeScript deskt
 | [overview.md](overview.md)         | Product vision, workflow, goals, and non-goals                           |
 | [architecture.md](architecture.md) | System architecture, components, data flow                               |
 | [data-model.md](data-model.md)     | Core data schemas (Project, Item, Note, ItemOfInterest, Connection, Tag) |
+| [explanations.md](explanations.md) | Knowledge layer — evidence-backed models of how a system works           |
 | [ui.md](ui.md)                     | UI layout, views, keyboard shortcuts                                     |
 | [mcp.md](mcp.md)                   | MCP server tools and integration                                         |
 | [file-formats.md](file-formats.md) | Import/export formats                                                    |
