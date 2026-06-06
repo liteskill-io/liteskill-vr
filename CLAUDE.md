@@ -49,6 +49,7 @@ contract. Run `task` to list everything.
 | `task lint` / `task fmt`            | eslint + clippy / prettier + cargo fmt.                               |
 | `task test`                         | vitest + cargo test.                                                  |
 | `task build`                        | Release app + installers. `task build:mcp` for the headless binary.   |
+| `task dev:seed`                     | Reset the dev DB and fill it from `fixtures/demo-project.json`.       |
 | `task docs:check`                   | Anti-rot check for this file (task refs + links resolve).             |
 | `task release:patch\|minor\|major`  | Bump version, sync, commit, tag.                                      |
 
@@ -78,22 +79,32 @@ denied during plain builds; CI and hooks run clippy with `-D warnings` (via
 
 Schema changes go through `src-tauri/src/db/migrations.rs`.
 
-## Frontend: the UI is read-only over IPC
+## Frontend: human/agent parity over a shared dispatch
 
-Non-obvious and important: the desktop UI **does not mutate data through Tauri
-IPC**. There is exactly one command — `project_snapshot` (`src-tauri/src/commands.rs`)
-— which returns the whole project as JSON; `src/lib/ipc.ts` exposes it as
-`getSnapshot()`. `src/App.tsx` fetches the snapshot on mount and re-fetches
-whenever the backend emits the **`db-changed`** event. The Zustand store
-(`src/lib/store.ts`) holds that snapshot.
+**Core requirement: there must be zero things an AI agent can do that a human
+cannot do in the UI.** Everything the MCP exposes as a mutating tool must be a
+CRUD affordance for humans too (`human >= agent`).
 
-> All writes happen through the **MCP server**, not IPC. When you add a feature
-> that creates or edits research data, it belongs in the MCP tool layer
-> (`src-tauri/src/mcp/`), and the UI picks it up via the next snapshot.
+This is achieved **structurally**, not by discipline:
 
-(Note: `spec/architecture.md` still describes a richer multi-command IPC
-contract and an `entity_changed` event — that's design intent that the code has
-since simplified. Trust the code; the real event is `db-changed`.)
+- **Reads**: `project_snapshot` (`src-tauri/src/commands.rs`) returns the whole
+  project as JSON; `src/lib/ipc.ts` exposes it as `getSnapshot()`. `src/App.tsx`
+  fetches on mount and re-fetches on the **`db-changed`** event. The Zustand
+  store (`src/lib/store.ts`) holds the snapshot.
+- **Writes**: one Tauri command, `mcp_call(tool, args)` (`src-tauri/src/commands.rs`),
+  routes through the **same `handlers::dispatch`** the MCP server calls — so a UI
+  write and an agent write run identical code. UI writes are stamped
+  `author_type: "human"` with the OS username; agent writes stay `"agent"`. After
+  a write, the backend emits `db-changed` and the UI refetches the snapshot (no
+  optimistic updates).
+
+> Parity is **machine-checked in the `check` gate**: `MUTATION_TOOLS`
+> (`src-tauri/src/mcp/server.rs`) is the source of truth; `scripts/check-parity.mjs`
+> (`task parity:check`, run by `check:fe`) fails if any mutating tool name is not
+> referenced anywhere in the frontend (`src/`), i.e. some component invokes it via
+> `mcp_call`. The `*_batch` tools are allowlisted — a human doing single creates
+> reaches the same state. UI writes are modal forms (`src/components/ModalLayer.tsx`,
+> specs in `src/lib/forms.ts`); a new mutating tool must get a form or CI fails.
 
 Frontend conventions, all enforced by `task check:fe`:
 

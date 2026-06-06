@@ -37,21 +37,19 @@
 
 ## Components
 
-> **Implementation status.** The frontend today is a **read-only viewer**. It
-> renders the project and updates live; it does not create, edit, or delete
-> entities. All mutations happen through the MCP server (see below). The
-> editing affordances described in [ui.md](ui.md) are planned, not yet built.
+> **Human/agent parity.** The frontend is a full read-**write** client: every
+> mutating MCP tool has a human CRUD affordance (`human >= agent`), enforced in
+> CI. See [ui.md](ui.md#humanagent-parity).
 
-- **Dashboard**: Project overview — item list, severity/triage breakdown, and recent findings (home view).
+- **Dashboard**: Project overview — item list, severity/triage breakdown, recent findings (home view).
 - **Tab Bar**: Open items as tabs (open/close/switch). Each tab is an item.
-- **Item Detail View**: Read-only display of an item's notes, items of interest, and connections.
+- **Item Detail View**: An item's notes, items of interest, and connections, with create/edit/delete affordances.
 - **Connection Map**: Cytoscape.js graph showing items and their connections across the project; click a node to open it as a tab.
-- **Sidebar**: Navigation — all items / by severity.
+- **Sidebar**: Navigation — all items / by severity / explanations / managers.
+- **Tag & Connection-Type Managers**: CRUD for the registered vocabularies.
+- **Search/Filter view**: Parity with the `search` / `filter` tools.
 - **Status Bar**: MCP server port and project counts.
-- **Zustand Store**: Client-side view state (open tabs, active view, zoom). Holds the latest project snapshot from the backend.
-
-Not yet implemented in the UI: search results view, tag manager, and a command
-palette — see [ui.md](ui.md).
+- **Zustand Store**: Client-side view state. Holds the latest project snapshot.
 
 ### Rust Backend
 
@@ -96,30 +94,31 @@ desktop app.
 
 ## IPC Contract
 
-The frontend is a read-only viewer, so the Tauri IPC surface is deliberately
-tiny: **one command** plus **one event**.
+The Tauri IPC surface is deliberately tiny: **one read command, one write
+command, one event**.
 
 ```
-invoke("project_snapshot") → {
+invoke("project_snapshot") → {            // READ
   items,             // Item summaries
   details,           // full ItemDetail per item (notes + ioi + connections)
   tags,              // registered Tag[]
   connection_types,  // registered ConnectionType[]
+  explanations, explanation_details,
   mcp_port           // where agents connect (e.g. 27182)
 }
+
+invoke("mcp_call", { tool, args }) → result   // WRITE (and any tool call)
+  // Runs the SAME handlers::dispatch the MCP server uses, stamped
+  // author_type = "human" with the OS username. This is what guarantees
+  // human/agent parity — UI and agent writes share one code path.
 
 listen("db-changed", callback)  // emitted on every backend mutation; the
                                 // frontend responds by re-fetching the snapshot
 ```
 
-All data **mutation** happens through the MCP server (see [mcp.md](mcp.md)), not
-through IPC. This keeps a single write path and a single, coarse sync signal —
-important because an AI agent mutates the database concurrently with the user.
-
-> **Planned.** When UI-driven editing lands, it should be added as thin Tauri
-> commands that call the same shared `db` functions the MCP tools use and then
-> emit `db-changed` — **not** as a parallel per-entity IPC + event system, which
-> would duplicate the MCP write logic and reintroduce cache-coherence bugs.
+There is a single write path (`dispatch`) and a single, coarse sync signal
+(`db-changed`) — important because an AI agent mutates the database concurrently
+with the user, and because it makes UI and agent behaviour provably identical.
 
 ## Persistence
 

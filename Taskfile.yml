@@ -64,6 +64,13 @@ tasks:
     cmds:
       - cargo build --release --bin liteskillvr-mcp --no-default-features
 
+  dev:seed:
+    desc: "Reset the dev DB (src-tauri/project.lsvr) and fill it with fixtures/demo-project.json"
+    dir: "{{.TAURI}}"
+    cmds:
+      - rm -f project.lsvr project.lsvr-wal project.lsvr-shm
+      - cargo run --quiet --bin seed --no-default-features -- project.lsvr ../fixtures/demo-project.json
+
   # ----------------------------------------------------- frontend atomics ---
   fe:typecheck:
     desc: "Type-check the frontend + node config files (tsc)"
@@ -188,6 +195,7 @@ tasks:
     desc: "Every non-mutating frontend gate (CI parity)"
     cmds:
       - task: docs:check
+      - task: parity:check
       - task: fe:typecheck
       - task: fe:lint
       - task: fe:format:check
@@ -219,6 +227,11 @@ tasks:
     desc: "Verify CLAUDE.md task refs and file links still resolve (anti-rot)"
     cmds:
       - node scripts/check-docs.mjs
+
+  parity:check:
+    desc: "Enforce human/agent parity: every mutating MCP tool has a UI affordance"
+    cmds:
+      - node scripts/check-parity.mjs
 
   docs:serve:
     desc: "Serve the static docs/ site locally at http://localhost:8000"

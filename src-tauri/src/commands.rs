@@ -1,11 +1,44 @@
 use std::sync::{Arc, Mutex};
 
 use serde_json::Value;
-use tauri::State;
+use tauri::{Emitter, State};
 
 use crate::db::Database;
+use crate::mcp::handlers;
 
 type DbState = Arc<Mutex<Database>>;
+
+// Human writes are attributed to the OS user; agents use the X-LiteSkill-Author
+// header. Identity is caller-controlled, never read from tool params.
+fn os_username() -> String {
+    std::env::var("USER")
+        .or_else(|_| std::env::var("USERNAME"))
+        .unwrap_or_else(|_| "local-user".to_string())
+}
+
+/// The single human write path.
+///
+/// Runs the SAME tool dispatch the MCP server uses, stamped
+/// `author_type = "human"`, so anything an agent can do the UI does through this
+/// identical code path (parity). Emits `db-changed` on success so the snapshot
+/// refetches.
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+pub fn mcp_call(
+    app: tauri::AppHandle,
+    db: State<'_, DbState>,
+    tool: String,
+    args: Value,
+) -> Result<Value, String> {
+    let result = {
+        let db = db.lock().map_err(|e| e.to_string())?;
+        handlers::dispatch(&db, &tool, &args, &os_username(), "human")
+    };
+    if result.is_ok() {
+        let _ = app.emit("db-changed", ());
+    }
+    result
+}
 
 // Full UI snapshot in one call: replaces the N+1 pattern of listItems() followed
 // by a getItem() per item that the frontend previously did.

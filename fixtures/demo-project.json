@@ -1,0 +1,417 @@
+{
+  "_comment": "Dev/design seed data for LiteSkill VR. Loaded by `task dev:seed` into src-tauri/project.lsvr, and validated by a Rust test. Cross-references use local string keys (item `key`, ioi `key`, claim `key`); evidence targets are `self`, `claim:<key>`, or `finding:<ioi-key>`. author_type is a mix of human/agent to exercise the UI badges.",
+
+  "tags": [
+    {
+      "name": "protocol",
+      "description": "Network protocol parsing / state",
+      "color": "#7AD3FF"
+    }
+  ],
+  "connection_types": [],
+
+  "items": [
+    {
+      "key": "httpd",
+      "name": "httpd",
+      "item_type": "elf",
+      "path": "/usr/sbin/httpd",
+      "architecture": "arm32",
+      "description": "Main web server daemon. Speaks a custom HTTP-ish protocol on :8080.",
+      "analysis_status": "in_progress",
+      "tags": ["interesting", "protocol"],
+      "notes": [
+        {
+          "title": "Entry points",
+          "content": "main() -> setup_sockets() -> accept_loop(). Each request is dispatched by type byte; login goes through parse_login().",
+          "author": "alice",
+          "author_type": "human"
+        }
+      ],
+      "iois": [
+        {
+          "key": "parse_login_overflow",
+          "title": "parse_login() stack overflow",
+          "description": "No bound check on the attacker-controlled length field before memcpy into a 256-byte stack buffer.",
+          "location": "0x08041234",
+          "severity": "critical",
+          "status": "draft",
+          "tags": ["memory-corruption"],
+          "author": "demo-agent",
+          "author_type": "agent"
+        },
+        {
+          "title": "Password compared with strcmp",
+          "description": "Auth check uses strcmp on the secret — timing side-channel.",
+          "location": "0x08042000",
+          "severity": "low",
+          "tags": ["crypto-weakness"],
+          "author": "alice",
+          "author_type": "human"
+        }
+      ]
+    },
+    {
+      "key": "libfoo",
+      "name": "libfoo.so",
+      "item_type": "shared_object",
+      "path": "/usr/lib/libfoo.so",
+      "architecture": "arm32",
+      "description": "Helper library: input validation, crypto helpers.",
+      "analysis_status": "untouched",
+      "tags": [],
+      "iois": [
+        {
+          "title": "validate_input() off-by-one",
+          "description": "Loop bound uses <= instead of <, writing one byte past the buffer.",
+          "location": "libfoo.so:0x1a40",
+          "severity": "high",
+          "tags": ["memory-corruption"],
+          "author": "demo-agent",
+          "author_type": "agent"
+        }
+      ]
+    },
+    {
+      "key": "httpd_conf",
+      "name": "httpd.conf",
+      "item_type": "config",
+      "path": "/etc/httpd.conf",
+      "description": "Runtime config. Contains a debug flag and a default admin token.",
+      "analysis_status": "reviewed",
+      "tags": ["insecure-config", "hardcoded-creds"],
+      "iois": [
+        {
+          "title": "Hardcoded admin token",
+          "description": "admin_token=CHANGEME shipped by default; accepted by the auth path.",
+          "location": "line 42",
+          "severity": "high",
+          "tags": ["hardcoded-creds"],
+          "author": "alice",
+          "author_type": "human"
+        }
+      ]
+    },
+    {
+      "key": "init_sh",
+      "name": "init.sh",
+      "item_type": "script",
+      "path": "/etc/init.d/httpd",
+      "description": "Boot script that launches httpd as root.",
+      "analysis_status": "untouched",
+      "tags": []
+    }
+  ],
+
+  "connections": [
+    {
+      "source": "httpd",
+      "source_type": "item",
+      "target": "libfoo",
+      "target_type": "item",
+      "connection_type": "links",
+      "description": "httpd dynamically links libfoo.so",
+      "author": "demo-agent",
+      "author_type": "agent"
+    },
+    {
+      "source": "httpd",
+      "source_type": "item",
+      "target": "httpd_conf",
+      "target_type": "item",
+      "connection_type": "reads_config",
+      "description": "httpd reads /etc/httpd.conf at startup",
+      "author": "demo-agent",
+      "author_type": "agent"
+    },
+    {
+      "source": "init_sh",
+      "source_type": "item",
+      "target": "httpd",
+      "target_type": "item",
+      "connection_type": "spawns",
+      "description": "init script starts httpd as a daemon",
+      "author": "alice",
+      "author_type": "human"
+    }
+  ],
+
+  "explanations": [
+    {
+      "stable_key": "explanation.auth_flow",
+      "title": "Authentication flow",
+      "explanation_type": "state_machine",
+      "summary": "Client sends HELLO; server returns a nonce; client returns a signed nonce; on valid signature the session moves to AUTHENTICATED and privileged commands are accepted.",
+      "status": "draft",
+      "confidence": "medium",
+      "tags": ["auth-bypass", "protocol"],
+      "scope": ["httpd"],
+      "author": "demo-agent",
+      "author_type": "agent",
+      "claims": [
+        {
+          "key": "claim.rsa",
+          "text": "Signature verification uses RSA-2048 against a baked-in public key.",
+          "claim_type": "behavior",
+          "status": "supported",
+          "confidence": "high"
+        },
+        {
+          "key": "claim.len_payload",
+          "text": "LoginRequest.length describes payload bytes, not total packet size.",
+          "claim_type": "hypothesis",
+          "status": "hypothesis",
+          "confidence": "medium"
+        }
+      ],
+      "open_questions": [
+        {
+          "question": "Is LoginRequest.length bounded before the payload copy in parse_login()?",
+          "priority": "high"
+        },
+        {
+          "question": "Does a failed signature verification always return before the state update?",
+          "priority": "medium"
+        }
+      ],
+      "states": [
+        {
+          "key": "UNAUTH",
+          "name": "UNAUTHENTICATED",
+          "description": "No session key; only HELLO is accepted.",
+          "is_initial": true
+        },
+        {
+          "key": "CHALLENGE",
+          "name": "CHALLENGE_SENT",
+          "description": "Server has issued a nonce and is awaiting a signed response."
+        },
+        {
+          "key": "AUTHED",
+          "name": "AUTHENTICATED",
+          "description": "Privileged commands are accepted."
+        },
+        {
+          "key": "ERROR",
+          "name": "ERROR",
+          "description": "Protocol violation; connection is dropped.",
+          "is_terminal": true
+        }
+      ],
+      "transitions": [
+        {
+          "key": "t.hello",
+          "from": "UNAUTH",
+          "to": "CHALLENGE",
+          "event": "HELLO",
+          "action": "generate nonce"
+        },
+        {
+          "key": "t.ok",
+          "from": "CHALLENGE",
+          "to": "AUTHED",
+          "event": "SIGNED_NONCE",
+          "guard": "signature valid",
+          "action": "derive session key"
+        },
+        {
+          "key": "t.bad",
+          "from": "CHALLENGE",
+          "to": "ERROR",
+          "event": "SIGNED_NONCE",
+          "guard": "signature invalid"
+        },
+        {
+          "key": "t.malformed",
+          "from": "UNAUTH",
+          "to": "ERROR",
+          "event": "malformed packet"
+        }
+      ],
+      "evidence": [
+        {
+          "target": "claim:claim.rsa",
+          "external_locator": "verify_signature+0x8c",
+          "external_kind": "ghidra",
+          "evidence_type": "decompilation",
+          "strength": "strong"
+        },
+        {
+          "target": "finding:parse_login_overflow",
+          "external_locator": "parse_login+0x31",
+          "external_kind": "ghidra",
+          "evidence_type": "disassembly",
+          "strength": "moderate",
+          "excerpt": "attacker-controlled length flows into memcpy size"
+        },
+        {
+          "target": "self",
+          "external_locator": "handle_login+0x142",
+          "external_kind": "ghidra",
+          "evidence_type": "disassembly",
+          "strength": "moderate",
+          "excerpt": "transition to AUTHENTICATED"
+        }
+      ]
+    },
+    {
+      "stable_key": "explanation.architecture",
+      "title": "Component architecture",
+      "explanation_type": "architecture",
+      "summary": "init.sh spawns httpd (root); httpd links libfoo.so, reads httpd.conf, and listens on :8080. Trust boundary at the network socket.",
+      "status": "draft",
+      "confidence": "high",
+      "tags": ["protocol"],
+      "scope": ["httpd", "libfoo", "httpd_conf", "init_sh"],
+      "author": "alice",
+      "author_type": "human",
+      "claims": [
+        {
+          "key": "claim.surface",
+          "text": "The only remote attack surface is the :8080 TCP listener in accept_loop().",
+          "claim_type": "security_relevant",
+          "status": "supported",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "stable_key": "explanation.protocol",
+      "title": "Wire protocol overview",
+      "explanation_type": "protocol",
+      "summary": "Length-prefixed binary protocol: 4-byte magic, 1-byte type, 2-byte length, payload. Types: HELLO(1), LOGIN(3), CMD(4).",
+      "status": "draft",
+      "confidence": "medium",
+      "tags": ["protocol"],
+      "scope": ["httpd"],
+      "claims": [
+        {
+          "key": "claim.framing",
+          "text": "Messages are framed by the 2-byte length field; there is no overall packet checksum.",
+          "claim_type": "behavior",
+          "status": "supported",
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "stable_key": "explanation.packet_login",
+      "title": "LoginRequest packet format",
+      "explanation_type": "packet_format",
+      "summary": "magic(u32)=0x4c534b4c, type(u8)=3, length(u16, payload bytes), payload(bytes). length and payload are attacker-controlled.",
+      "status": "draft",
+      "confidence": "medium",
+      "tags": ["protocol", "memory-corruption"],
+      "scope": ["httpd"],
+      "claims": [
+        {
+          "key": "claim.len_attacker",
+          "text": "length is attacker-controlled and is used directly as the memcpy size in parse_login().",
+          "claim_type": "security_relevant",
+          "status": "supported",
+          "confidence": "high"
+        }
+      ],
+      "open_questions": [
+        {
+          "question": "Is there an upper bound enforced on length anywhere?",
+          "priority": "high"
+        }
+      ]
+    },
+    {
+      "stable_key": "explanation.control_flow_login",
+      "title": "parse_login control flow",
+      "explanation_type": "control_flow",
+      "summary": "read header -> validate magic -> switch(type) -> copy payload into stack buffer -> dispatch. The copy precedes any length check.",
+      "status": "draft",
+      "confidence": "medium",
+      "tags": ["memory-corruption"],
+      "scope": ["httpd"]
+    },
+    {
+      "stable_key": "explanation.dataflow_len",
+      "title": "Attacker length to memcpy (taint)",
+      "explanation_type": "data_flow",
+      "summary": "Source: network packet length field. Path: parse_login reads length -> passes as size to memcpy into a 256-byte stack buffer. Sink: stack overflow. No validation on the path.",
+      "status": "draft",
+      "confidence": "high",
+      "tags": ["memory-corruption"],
+      "scope": ["httpd"],
+      "claims": [
+        {
+          "key": "claim.unvalidated",
+          "text": "No bounds check exists between the length read and the memcpy sink.",
+          "claim_type": "security_relevant",
+          "status": "supported",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "stable_key": "explanation.memory_session",
+      "title": "Session context memory layout",
+      "explanation_type": "memory_layout",
+      "summary": "session_ctx struct (0x40 bytes): nonce[16] @0x00, state(u32) @0x10, key[32] @0x14. The 256-byte login buffer sits just below the saved return address.",
+      "status": "draft",
+      "confidence": "low",
+      "tags": [],
+      "scope": ["httpd"]
+    },
+    {
+      "stable_key": "explanation.session_lifecycle",
+      "title": "Session object lifecycle",
+      "explanation_type": "object_lifecycle",
+      "summary": "alloc on accept() -> initialized in handle_hello -> freed on disconnect. No use-after-free observed yet; double-free on error path is unverified.",
+      "status": "draft",
+      "confidence": "low",
+      "tags": [],
+      "scope": ["httpd"],
+      "open_questions": [
+        {
+          "question": "Can the error path free the session twice?",
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "stable_key": "explanation.api_surface",
+      "title": "libfoo.so exported API",
+      "explanation_type": "api_surface",
+      "summary": "Exports validate_input(buf,len), decrypt(buf,len,key), and hash(buf,len). validate_input has an off-by-one; decrypt uses a fixed IV.",
+      "status": "draft",
+      "confidence": "medium",
+      "tags": ["crypto-weakness"],
+      "scope": ["libfoo"]
+    },
+    {
+      "stable_key": "explanation.threat_model",
+      "title": "Pre-auth threat model",
+      "explanation_type": "threat_model",
+      "summary": "Unauthenticated remote attacker on the LAN can reach :8080. Highest-value path: LoginRequest parsing (pre-auth memory corruption). Secondary: default admin token.",
+      "status": "draft",
+      "confidence": "medium",
+      "tags": ["auth-bypass", "memory-corruption"],
+      "scope": ["httpd"],
+      "claims": [
+        {
+          "key": "claim.preauth",
+          "text": "The most severe bug is reachable before authentication.",
+          "claim_type": "security_relevant",
+          "status": "supported",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "stable_key": "explanation.custom_notes",
+      "title": "Misc reversing notes",
+      "explanation_type": "custom",
+      "summary": "Scratch space for findings that don't fit a structured type yet: anti-debug check at start(), strings table at 0x09000, suspected watchdog thread.",
+      "status": "draft",
+      "confidence": "low",
+      "tags": [],
+      "scope": ["httpd"]
+    }
+  ]
+}

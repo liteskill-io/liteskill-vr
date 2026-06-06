@@ -20,6 +20,7 @@ pub struct NewEvidence<'a> {
     pub strength: &'a str,
     pub excerpt: Option<&'a str>,
     pub author: &'a str,
+    pub author_type: &'a str,
 }
 
 impl Database {
@@ -42,7 +43,7 @@ impl Database {
             "INSERT INTO evidence_links (id, target_type, target_id, source_entity_type,
                 source_entity_id, external_locator, external_kind, evidence_type, strength,
                 excerpt, author, author_type, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 'agent', ?12)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 id,
                 e.target_type,
@@ -55,6 +56,7 @@ impl Database {
                 e.strength,
                 e.excerpt,
                 e.author,
+                e.author_type,
                 ts
             ],
         )?;
@@ -71,9 +73,22 @@ impl Database {
             strength: e.strength.to_string(),
             excerpt: e.excerpt.map(String::from),
             author: e.author.to_string(),
-            author_type: "agent".to_string(),
+            author_type: e.author_type.to_string(),
             created_at: ts,
         })
+    }
+
+    pub fn evidence_delete(&self, id: &str) -> Result<()> {
+        let changes = self
+            .conn
+            .execute("DELETE FROM evidence_links WHERE id = ?1", params![id])?;
+        if changes == 0 {
+            return Err(DbError::NotFound {
+                entity: "evidence".to_string(),
+                id: id.to_string(),
+            });
+        }
+        Ok(())
     }
 
     fn validate_evidence_target(&self, target_type: &str, target_id: &str) -> Result<()> {

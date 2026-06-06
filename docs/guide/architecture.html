@@ -86,19 +86,19 @@
 
         <h2>Components</h2>
         <h3>Frontend (TypeScript / React)</h3>
-        <blockquote><p><strong>Implementation status.</strong> The frontend today is a
-           <strong>read-only viewer</strong> — it renders the project and updates live, but
-           does not create, edit, or delete entities. All mutations go through the MCP
-           server. The editing UI in <a href="interface.html">The interface</a> is planned.</p></blockquote>
+        <blockquote><p><strong>Human/agent parity.</strong> The frontend is a full
+           read-<strong>write</strong> client — every mutating MCP tool has a human CRUD
+           affordance (<code>human ≥ agent</code>), enforced in CI. See
+           <a href="interface.html">The interface</a>.</p></blockquote>
         <ul>
         <li><strong>Dashboard</strong> — project overview: items, severity/triage breakdown, recent findings</li>
         <li><strong>Tab bar</strong> — open items as tabs (open/close/switch); each tab is an item</li>
-        <li><strong>Item detail</strong> — read-only display of an item's notes, items of interest, connections</li>
+        <li><strong>Item detail</strong> — an item's notes, items of interest, connections, with create/edit/delete</li>
         <li><strong>Connection map</strong> — Cytoscape.js graph of items and connections; click a node to open it</li>
-        <li><strong>Sidebar</strong> — navigation (all items / by severity)</li>
+        <li><strong>Sidebar</strong> — navigation (items / by severity / explanations / managers)</li>
+        <li><strong>Tag &amp; Connection-Type managers, Search/Filter view</strong> — parity with the vocab + search/filter tools</li>
         <li><strong>Zustand store</strong> — client view state; holds the latest project snapshot</li>
         </ul>
-        <p>Not yet in the UI: a search view, a tag manager, and a command palette.</p>
 
         <h3>Rust backend</h3>
         <ul>
@@ -113,23 +113,19 @@
            <a href="headless-mcp.html">headless binary</a> link against the same code path.</p>
 
         <h2>IPC contract</h2>
-        <p>The frontend is a read-only viewer, so the Tauri IPC surface is deliberately
-           tiny — <strong>one command</strong> plus <strong>one event</strong>. All
-           <em>mutation</em> happens through the MCP server, not IPC.</p>
-        <pre data-lang="text"><code>invoke("project_snapshot") → {
-  items,             // Item summaries
-  details,           // full ItemDetail per item (notes + ioi + connections)
-  tags,              // registered Tag[]
-  connection_types,  // registered ConnectionType[]
-  mcp_port           // where agents connect (e.g. 27182)
-}
+        <p>Deliberately tiny: <strong>one read command, one write command, one event</strong>.</p>
+        <pre data-lang="text"><code>invoke("project_snapshot") → { items, details, tags,   // READ
+  connection_types, explanations, explanation_details, mcp_port }
+
+invoke("mcp_call", { tool, args }) → result            // WRITE (any tool call)
+  // Runs the SAME handlers::dispatch the MCP server uses, stamped
+  // author_type = "human" with the OS username — this is what makes
+  // human and agent writes provably identical (parity).
 
 listen("db-changed", callback)  // emitted on every backend mutation; the
                                 // frontend responds by re-fetching the snapshot</code></pre>
-        <blockquote><p><strong>Planned.</strong> When UI editing lands it should be thin
-           Tauri commands that call the same shared <code>db</code> functions the MCP tools
-           use, then emit <code>db-changed</code> — not a parallel per-entity IPC + event
-           system, which would duplicate the MCP write logic.</p></blockquote>
+        <p>One write path (<code>dispatch</code>) and one coarse sync signal
+           (<code>db-changed</code>) — the same code for UI and agent writes.</p>
 
         <h2>Persistence</h2>
         <p>Each project is a single <code>.lsvr</code> file (SQLite, WAL mode, foreign keys

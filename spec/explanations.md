@@ -95,12 +95,15 @@ table (which already powers the Connection Map):
 
 ## MCP tools
 
-| Tool                 | Purpose                                                                                                                                                                                  |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `explanation_upsert` | Create/update an explanation **by `stable_key`** with nested `claims` + `open_questions` + `scope_item_ids`, all-or-nothing. Re-runs converge. Returns the detail + advisory `warnings`. |
-| `explanation_get`    | One explanation with claims, open questions, evidence, and scope.                                                                                                                        |
-| `explanation_list`   | List with child counts; filter by `explanation_type` / `status`.                                                                                                                         |
-| `evidence_link`      | Attach evidence to an explanation, claim, or finding.                                                                                                                                    |
+| Tool                                             | Purpose                                                                                                                                                                                  |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `explanation_upsert`                             | Create/update an explanation **by `stable_key`** with nested `claims` + `open_questions` + `scope_item_ids`, all-or-nothing. Re-runs converge. Returns the detail + advisory `warnings`. |
+| `explanation_get`                                | One explanation with claims, open questions, evidence, and scope.                                                                                                                        |
+| `explanation_list`                               | List with child counts; filter by `explanation_type` / `status`.                                                                                                                         |
+| `explanation_update` / `explanation_delete`      | Update envelope fields / delete an explanation (cascades children + scope/evidence links).                                                                                               |
+| `claim_create` / `claim_update` / `claim_delete` | Granular CRUD for a claim (full CRUD parity).                                                                                                                                            |
+| `open_question_create` / `_update` / `_delete`   | Granular CRUD for an open question.                                                                                                                                                      |
+| `evidence_link` / `evidence_delete`              | Attach / remove evidence on an explanation, claim, or finding.                                                                                                                           |
 
 Discovery reuses the existing read tools: `project_summary` includes an
 `explanations` list and open `open_questions`; `changes_since` includes an
@@ -122,11 +125,13 @@ refine a model across sessions.
 
 ## UI
 
-The desktop **Explanations** section (read-only, like the rest of the UI) lists
-explanations and shows a detail view: summary, claims (with status + confidence
-badges and their evidence), open questions (with priority), explanation-level
-evidence, and clickable scope items. Fed by the project snapshot; updates live
-on `db-changed`.
+The desktop **Explanations** section lists explanations and shows a detail view:
+summary, claims (with status + confidence badges and their evidence), open
+questions (with priority), explanation-level evidence, and clickable scope
+items. Humans get full CRUD here (create/edit explanations and each child,
+delete with confirm) via the granular tools above — the UI auto-generates
+`stable_key`s so humans never type them. Fed by the project snapshot; updates
+live on `db-changed`.
 
 ## Roadmap
 

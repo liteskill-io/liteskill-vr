@@ -128,7 +128,22 @@ const MUTATION_TOOLS: &[&str] = &[
     "connection_create_batch",
     "connection_delete",
     "explanation_upsert",
+    "explanation_update",
+    "explanation_delete",
+    "claim_create",
+    "claim_update",
+    "claim_delete",
+    "open_question_create",
+    "open_question_update",
+    "open_question_delete",
     "evidence_link",
+    "evidence_delete",
+    "state_create",
+    "state_update",
+    "state_delete",
+    "transition_create",
+    "transition_update",
+    "transition_delete",
     "bulk_delete",
 ];
 
@@ -203,7 +218,7 @@ impl rmcp::ServerHandler for LiteSkillHandler {
         });
 
         let db = self.db.lock().unwrap();
-        let result = handlers::dispatch(&db, &tool_name, &tool_args, &author);
+        let result = handlers::dispatch(&db, &tool_name, &tool_args, &author, "agent");
         drop(db);
 
         if result.is_ok() && is_mutation(&tool_name) {

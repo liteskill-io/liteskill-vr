@@ -5,9 +5,11 @@ import { ConnectionMap } from "@/components/ConnectionMap";
 import { Dashboard } from "@/components/Dashboard";
 import { Explanations } from "@/components/Explanations";
 import { ItemDetail } from "@/components/ItemDetail";
+import { ModalLayer } from "@/components/ModalLayer";
 import { Sidebar } from "@/components/Sidebar";
 import { StatusBar } from "@/components/StatusBar";
 import { TabBar } from "@/components/TabBar";
+import { Vocabulary } from "@/components/Vocabulary";
 import { getSnapshot } from "@/lib/ipc";
 import { useStore } from "@/lib/store";
 
@@ -69,6 +71,8 @@ function App(): React.JSX.Element {
     <ConnectionMap />
   ) : rootView === "explanations" ? (
     <Explanations />
+  ) : rootView === "vocabulary" ? (
+    <Vocabulary />
   ) : (
     <Dashboard />
   );
@@ -81,6 +85,7 @@ function App(): React.JSX.Element {
         <div className="flex-1 overflow-hidden">{mainView}</div>
         <StatusBar />
       </div>
+      <ModalLayer />
     </div>
   );
 }

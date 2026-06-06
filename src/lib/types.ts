@@ -155,12 +155,45 @@ export interface ExplanationSummary extends Explanation {
   evidence_count: number;
 }
 
+export interface State {
+  id: string;
+  explanation_id: string;
+  stable_key: string;
+  name: string;
+  description: string;
+  is_initial: boolean;
+  is_terminal: boolean;
+  author: string;
+  author_type: "human" | "agent";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Transition {
+  id: string;
+  explanation_id: string;
+  stable_key: string;
+  from_state: string;
+  to_state: string;
+  event: string;
+  guard?: string;
+  action?: string;
+  description: string;
+  author: string;
+  author_type: "human" | "agent";
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ExplanationDetail extends Explanation {
   tags: string[];
   scope_item_ids: string[];
   claims: Claim[];
   open_questions: OpenQuestion[];
   evidence: EvidenceLink[];
+  states: State[];
+  transitions: Transition[];
+  diagram_text?: string;
 }
 
 export interface ProjectSnapshot {

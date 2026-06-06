@@ -193,7 +193,43 @@ pub struct ExplanationSummary {
     pub evidence_count: i64,
 }
 
-/// Full explanation with its claims, open questions, evidence, and scope.
+/// A state in a `state_machine` explanation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct State {
+    pub id: String,
+    pub explanation_id: String,
+    pub stable_key: String,
+    pub name: String,
+    pub description: String,
+    pub is_initial: bool,
+    pub is_terminal: bool,
+    pub author: String,
+    pub author_type: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// A transition between two states (referenced by their `stable_key`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Transition {
+    pub id: String,
+    pub explanation_id: String,
+    pub stable_key: String,
+    pub from_state: String,
+    pub to_state: String,
+    pub event: String,
+    pub guard: Option<String>,
+    pub action: Option<String>,
+    pub description: String,
+    pub author: String,
+    pub author_type: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// Full explanation with its claims, open questions, evidence, scope, and (for
+/// state machines) states + transitions. `diagram_text` is a generated-on-the-fly
+/// text rendering for agents — never stored.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExplanationDetail {
     #[serde(flatten)]
@@ -203,6 +239,10 @@ pub struct ExplanationDetail {
     pub claims: Vec<Claim>,
     pub open_questions: Vec<OpenQuestion>,
     pub evidence: Vec<EvidenceLink>,
+    pub states: Vec<State>,
+    pub transitions: Vec<Transition>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub diagram_text: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

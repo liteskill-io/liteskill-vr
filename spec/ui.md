@@ -1,21 +1,31 @@
 # UI Specification
 
-> **Implementation status (read this first).** The shipped UI is a **read-only
-> viewer**: it renders the project and updates live as an AI agent writes to it
-> over MCP, but it does **not** create, edit, or delete entities. This document
-> mixes what exists with the intended design. Sections are tagged **Built** or
-> **Planned**. Anything not tagged Built is a design target, not current
-> behaviour. Today's write path is the MCP server — see [mcp.md](mcp.md).
+> **Core requirement: human/agent parity.** There must be **zero things an AI
+> agent can do that a human cannot do in the UI.** Every mutating MCP tool has a
+> corresponding human CRUD affordance (`human >= agent`), enforced in CI (see
+> [Parity](#humanagent-parity)). The UI is therefore a full read-**write**
+> client, not a viewer.
 >
-> **Built today:** Dashboard (project overview), read-only Item Detail, the
-> Connection Map, a Sidebar (all items / by severity), an item Tab Bar, the
-> Status Bar, live refresh on `db-changed`, dark theme, and zoom
-> (`Ctrl`/`⌘` `+` / `-` / `0`).
->
-> **Planned (not yet built):** all create/edit/delete affordances, the command
-> palette, the tag manager, a search-results view, markdown rendering + syntax
-> highlighting, tab badges/reordering, breadcrumb + back/forward history, and the
-> shortcut table below (except zoom).
+> Reads come from the `project_snapshot` IPC command; writes go through a single
+> `mcp_call(tool, args)` IPC command that runs the **same dispatch** as the MCP
+> server, stamped `author_type: "human"`. After any write the UI refetches the
+> snapshot on `db-changed`. Some niceties below remain **Planned** (tagged):
+> the command palette, markdown rendering + syntax highlighting, tab
+> badges/reordering, and breadcrumb/back-forward history.
+
+## Human/agent parity
+
+Everything an agent can change, a human can change. The MCP `MUTATION_TOOLS`
+registry is the source of truth; `src/lib/capabilities.ts` maps each tool to the
+UI control that exposes it; `scripts/check-parity.mjs` (`task parity:check`,
+wired into `task check` and CI) fails the build if any mutating tool lacks a UI
+affordance. The `*_batch` tools are allowlisted — a human creating entries one
+at a time reaches the same state, so the capability is covered.
+
+Writes are modal/drawer forms (create + edit) with confirm-on-delete; the
+destructive `bulk_delete` sits behind an explicit danger confirm. Forms prefill
+registered tags and connection types from the snapshot so a human can't trip the
+"unregistered vocabulary" validation, and surface any dispatch error inline.
 
 ## Design Philosophy
 
@@ -82,11 +92,8 @@ Home view when no item tab is focused.
 
 ### Item Detail
 
-**Built** as a read-only view; the inline edit/add/delete/connect affordances
-described below are **Planned**. Today the view displays the data and an empty
-state points the user at the MCP server for adding content.
-
-Main view when an item tab is active. Three sections:
+Main view when an item tab is active. Each section has create/edit/delete
+affordances (modal forms; delete confirms). Three sections:
 
 **Header**: Item name, type, path, architecture, status, tags. Editable inline. Delete button.
 
@@ -124,22 +131,20 @@ Project-wide view showing all items and their connections as a graph.
 - Click an item node to open it as a tab
 - Useful for understanding how components relate across a firmware image
 
-### Tag Manager — Planned
+### Tag Manager
 
-Not built yet. Tags are displayed read-only on items and findings; managing them
-happens over MCP (`tag_create` / `tag_delete`). The intended UI:
-
-Accessible from project settings or command palette.
+Full CRUD for the registered tag vocabulary (parity with `tag_create` /
+`tag_delete`), plus the connection-type vocabulary (Connection-Type Manager).
+Accessible from the sidebar.
 
 - List of all registered tags with name, description, color, and usage count
 - Create new tags
 - Edit tag descriptions and colors
 - Delete tags (removes from all entities)
 
-### Search Results — Planned
+### Search Results
 
-Not built yet. Full-text `search` and structured `filter` exist as MCP tools
-(see [mcp.md](mcp.md)); there is no in-UI search view. The intended UI:
+A search/filter view giving humans parity with the `search` and `filter` tools.
 
 Full-screen search results view.
 

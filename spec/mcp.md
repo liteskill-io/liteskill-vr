@@ -6,6 +6,12 @@ LiteSkill VR hosts an MCP (Model Context Protocol) server that starts automatica
 
 The MCP server is a **read-write interface**. Agents don't just dump findings — they query existing research, review what past sessions discovered, build on prior analysis, and avoid duplicating work.
 
+**Human/agent parity (core requirement).** Every mutating tool here is also a
+human CRUD affordance in the desktop UI — there is nothing an agent can do that a
+human cannot. The UI's `mcp_call` IPC command runs this same tool dispatch
+(stamped `author_type: "human"`), and a CI check (`task parity:check`) fails the
+build if any mutating tool lacks a UI control. See [ui.md](ui.md#humanagent-parity).
+
 ## Connection
 
 The MCP server runs on HTTP (`127.0.0.1`) using the MCP streamable-HTTP transport, served at the `/mcp` endpoint. It starts automatically when LiteSkill VR opens a project. The port is displayed in the status bar.

@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use crate::db::error::DbError;
 use crate::db::{
     ClaimInput, Database, ExplanationInput, NewConnection, NewEvidence, NewIoi, QuestionInput,
-    SearchFilters,
+    SearchFilters, StateInput, TransitionInput,
 };
 
 pub type HandlerResult = Result<Value, String>;
@@ -96,7 +96,13 @@ where
 }
 
 #[allow(clippy::too_many_lines)]
-pub fn dispatch(db: &Database, tool_name: &str, params: &Value, author: &str) -> HandlerResult {
+pub fn dispatch(
+    db: &Database,
+    tool_name: &str,
+    params: &Value,
+    author: &str,
+    author_type: &str,
+) -> HandlerResult {
     match tool_name {
         // Project
         "project_get" => serialize(db.project_get().map_err(db_err)?),
@@ -159,8 +165,8 @@ pub fn dispatch(db: &Database, tool_name: &str, params: &Value, author: &str) ->
         }
 
         // Notes
-        "note_create" => handle_note_create(db, params, author),
-        "note_create_batch" => handle_note_create_batch(db, params, author),
+        "note_create" => handle_note_create(db, params, author, author_type),
+        "note_create_batch" => handle_note_create_batch(db, params, author, author_type),
         "note_update" => handle_note_update(db, params),
         "note_delete" => {
             let id = param_str_required(params, "id")?;
@@ -169,8 +175,8 @@ pub fn dispatch(db: &Database, tool_name: &str, params: &Value, author: &str) ->
         }
 
         // IOI
-        "ioi_create" => handle_ioi_create(db, params, author),
-        "ioi_create_batch" => handle_ioi_create_batch(db, params, author),
+        "ioi_create" => handle_ioi_create(db, params, author, author_type),
+        "ioi_create_batch" => handle_ioi_create_batch(db, params, author, author_type),
         "ioi_update" => handle_ioi_update(db, params),
         "ioi_delete" => {
             let id = param_str_required(params, "id")?;
@@ -180,10 +186,12 @@ pub fn dispatch(db: &Database, tool_name: &str, params: &Value, author: &str) ->
 
         // Connections
         "connection_create" => {
-            let p = parse_new_connection(params, author)?;
+            let p = parse_new_connection(params, author, author_type)?;
             serialize(db.connection_create(&p).map_err(db_err)?)
         }
-        "connection_create_batch" => handle_connection_create_batch(db, params, author),
+        "connection_create_batch" => {
+            handle_connection_create_batch(db, params, author, author_type)
+        }
         "connection_list" => {
             let entity_id = param_str_required(params, "entity_id")?;
             serialize(
@@ -199,7 +207,48 @@ pub fn dispatch(db: &Database, tool_name: &str, params: &Value, author: &str) ->
         }
 
         // Explanations
-        "explanation_upsert" => handle_explanation_upsert(db, params, author),
+        "explanation_upsert" => handle_explanation_upsert(db, params, author, author_type),
+        "explanation_update" => handle_explanation_update(db, params),
+        "explanation_delete" => {
+            let id = param_str_required(params, "id")?;
+            db.explanation_delete(id).map_err(db_err)?;
+            Ok(json!({"deleted": true}))
+        }
+        "claim_create" => handle_claim_create(db, params, author, author_type),
+        "claim_update" => handle_claim_update(db, params),
+        "claim_delete" => {
+            let id = param_str_required(params, "id")?;
+            db.claim_delete(id).map_err(db_err)?;
+            Ok(json!({"deleted": true}))
+        }
+        "open_question_create" => handle_question_create(db, params, author, author_type),
+        "open_question_update" => handle_question_update(db, params),
+        "open_question_delete" => {
+            let id = param_str_required(params, "id")?;
+            db.open_question_delete(id).map_err(db_err)?;
+            Ok(json!({"deleted": true}))
+        }
+        "evidence_delete" => {
+            let id = param_str_required(params, "id")?;
+            db.evidence_delete(id).map_err(db_err)?;
+            Ok(json!({"deleted": true}))
+        }
+
+        // State machine content
+        "state_create" => handle_state_create(db, params, author, author_type),
+        "state_update" => handle_state_update(db, params),
+        "state_delete" => {
+            let id = param_str_required(params, "id")?;
+            db.state_delete(id).map_err(db_err)?;
+            Ok(json!({"deleted": true}))
+        }
+        "transition_create" => handle_transition_create(db, params, author, author_type),
+        "transition_update" => handle_transition_update(db, params),
+        "transition_delete" => {
+            let id = param_str_required(params, "id")?;
+            db.transition_delete(id).map_err(db_err)?;
+            Ok(json!({"deleted": true}))
+        }
         "explanation_get" => {
             let id = param_str_required(params, "id")?;
             serialize(db.explanation_get(id).map_err(db_err)?)
@@ -211,7 +260,7 @@ pub fn dispatch(db: &Database, tool_name: &str, params: &Value, author: &str) ->
             )
             .map_err(db_err)?,
         ),
-        "evidence_link" => handle_evidence_link(db, params, author),
+        "evidence_link" => handle_evidence_link(db, params, author, author_type),
 
         // Search & Filter
         "search" => {
@@ -354,18 +403,28 @@ fn handle_item_update(db: &Database, params: &Value) -> HandlerResult {
 
 // --- Notes ---
 
-fn handle_note_create(db: &Database, params: &Value, author: &str) -> HandlerResult {
+fn handle_note_create(
+    db: &Database,
+    params: &Value,
+    author: &str,
+    author_type: &str,
+) -> HandlerResult {
     let item_id = param_str_required(params, "item_id")?;
     let title = param_str_required(params, "title")?;
     let content = param_str_required(params, "content")?;
     let tags = param_tags(params, "tags");
     serialize(
-        db.note_create(Some(item_id), title, content, author, "agent", &tags)
+        db.note_create(Some(item_id), title, content, author, author_type, &tags)
             .map_err(db_err)?,
     )
 }
 
-fn handle_note_create_batch(db: &Database, params: &Value, author: &str) -> HandlerResult {
+fn handle_note_create_batch(
+    db: &Database,
+    params: &Value,
+    author: &str,
+    author_type: &str,
+) -> HandlerResult {
     let notes = params
         .get("notes")
         .and_then(Value::as_array)
@@ -381,7 +440,7 @@ fn handle_note_create_batch(db: &Database, params: &Value, author: &str) -> Hand
                 param_str(note, "content").ok_or_else(|| "missing 'content'".to_string())?;
             let tags = param_tags(note, "tags");
             let created = db
-                .note_create(Some(item_id), title, content, author, "agent", &tags)
+                .note_create(Some(item_id), title, content, author, author_type, &tags)
                 .map_err(db_err)?;
             Ok((created.note.id.clone(), created))
         },
@@ -407,7 +466,12 @@ fn handle_note_update(db: &Database, params: &Value) -> HandlerResult {
 
 // --- IOI ---
 
-fn handle_ioi_create(db: &Database, params: &Value, author: &str) -> HandlerResult {
+fn handle_ioi_create(
+    db: &Database,
+    params: &Value,
+    author: &str,
+    author_type: &str,
+) -> HandlerResult {
     let item_id = param_str_required(params, "item_id")?;
     let title = param_str_required(params, "title")?;
     let description = param_str_required(params, "description")?;
@@ -421,7 +485,7 @@ fn handle_ioi_create(db: &Database, params: &Value, author: &str) -> HandlerResu
             severity: param_str(params, "severity"),
             status: param_str(params, "status"),
             author,
-            author_type: "agent",
+            author_type,
             tags: &tags,
         })
         .map_err(db_err)?;
@@ -436,7 +500,12 @@ fn handle_ioi_create(db: &Database, params: &Value, author: &str) -> HandlerResu
     Ok(result)
 }
 
-fn handle_ioi_create_batch(db: &Database, params: &Value, author: &str) -> HandlerResult {
+fn handle_ioi_create_batch(
+    db: &Database,
+    params: &Value,
+    author: &str,
+    author_type: &str,
+) -> HandlerResult {
     let item_id = param_str_required(params, "item_id")?;
     let items = params
         .get("items")
@@ -459,7 +528,7 @@ fn handle_ioi_create_batch(db: &Database, params: &Value, author: &str) -> Handl
                     severity: param_str(item, "severity"),
                     status: param_str(item, "status"),
                     author,
-                    author_type: "agent",
+                    author_type,
                     tags: &tags,
                 })
                 .map_err(db_err)?;
@@ -498,7 +567,12 @@ fn handle_ioi_update(db: &Database, params: &Value) -> HandlerResult {
 
 // --- Connections ---
 
-fn handle_connection_create_batch(db: &Database, params: &Value, author: &str) -> HandlerResult {
+fn handle_connection_create_batch(
+    db: &Database,
+    params: &Value,
+    author: &str,
+    author_type: &str,
+) -> HandlerResult {
     let connections = params
         .get("connections")
         .and_then(Value::as_array)
@@ -507,7 +581,7 @@ fn handle_connection_create_batch(db: &Database, params: &Value, author: &str) -
     run_batch(
         connections,
         |item| {
-            let p = parse_new_connection(item, author)?;
+            let p = parse_new_connection(item, author, author_type)?;
             let created = db.connection_create(&p).map_err(db_err)?;
             Ok((created.id.clone(), created))
         },
@@ -520,6 +594,7 @@ fn handle_connection_create_batch(db: &Database, params: &Value, author: &str) -
 fn parse_new_connection<'a>(
     params: &'a Value,
     author: &'a str,
+    author_type: &'a str,
 ) -> Result<NewConnection<'a>, String> {
     Ok(NewConnection {
         source_id: param_str_required(params, "source_id")?,
@@ -529,7 +604,7 @@ fn parse_new_connection<'a>(
         connection_type: param_str_required(params, "connection_type")?,
         description: param_str(params, "description").unwrap_or(""),
         author,
-        author_type: "agent",
+        author_type,
     })
 }
 
@@ -626,7 +701,64 @@ fn parse_questions(params: &Value) -> Result<Vec<QuestionInput>, String> {
         .collect()
 }
 
-fn handle_explanation_upsert(db: &Database, params: &Value, author: &str) -> HandlerResult {
+fn param_bool(v: &Value, key: &str) -> bool {
+    v.get(key).and_then(Value::as_bool).unwrap_or(false)
+}
+
+fn parse_states(params: &Value) -> Result<Vec<StateInput>, String> {
+    let Some(arr) = params.get("states").and_then(Value::as_array) else {
+        return Ok(Vec::new());
+    };
+    arr.iter()
+        .enumerate()
+        .map(|(i, s)| {
+            Ok(StateInput {
+                stable_key: param_str(s, "stable_key")
+                    .ok_or_else(|| format!("states[{i}]: missing 'stable_key'"))?
+                    .to_string(),
+                name: param_str(s, "name")
+                    .ok_or_else(|| format!("states[{i}]: missing 'name'"))?
+                    .to_string(),
+                description: param_str(s, "description").map(String::from),
+                is_initial: param_bool(s, "is_initial"),
+                is_terminal: param_bool(s, "is_terminal"),
+            })
+        })
+        .collect()
+}
+
+fn parse_transitions(params: &Value) -> Result<Vec<TransitionInput>, String> {
+    let Some(arr) = params.get("transitions").and_then(Value::as_array) else {
+        return Ok(Vec::new());
+    };
+    arr.iter()
+        .enumerate()
+        .map(|(i, t)| {
+            Ok(TransitionInput {
+                stable_key: param_str(t, "stable_key")
+                    .ok_or_else(|| format!("transitions[{i}]: missing 'stable_key'"))?
+                    .to_string(),
+                from_state: param_str(t, "from_state")
+                    .ok_or_else(|| format!("transitions[{i}]: missing 'from_state'"))?
+                    .to_string(),
+                to_state: param_str(t, "to_state")
+                    .ok_or_else(|| format!("transitions[{i}]: missing 'to_state'"))?
+                    .to_string(),
+                event: param_str(t, "event").map(String::from),
+                guard: param_str(t, "guard").map(String::from),
+                action: param_str(t, "action").map(String::from),
+                description: param_str(t, "description").map(String::from),
+            })
+        })
+        .collect()
+}
+
+fn handle_explanation_upsert(
+    db: &Database,
+    params: &Value,
+    author: &str,
+    author_type: &str,
+) -> HandlerResult {
     let input = ExplanationInput {
         stable_key: param_str_required(params, "stable_key")?.to_string(),
         title: param_str_required(params, "title")?.to_string(),
@@ -640,7 +772,10 @@ fn handle_explanation_upsert(db: &Database, params: &Value, author: &str) -> Han
         scope_item_ids: param_tags(params, "scope_item_ids"),
         claims: parse_claims(params)?,
         open_questions: parse_questions(params)?,
+        states: parse_states(params)?,
+        transitions: parse_transitions(params)?,
         author: author.to_string(),
+        author_type: author_type.to_string(),
     };
     let res = db.explanation_upsert(&input).map_err(db_err)?;
     Ok(json!({
@@ -649,7 +784,161 @@ fn handle_explanation_upsert(db: &Database, params: &Value, author: &str) -> Han
     }))
 }
 
-fn handle_evidence_link(db: &Database, params: &Value, author: &str) -> HandlerResult {
+fn handle_explanation_update(db: &Database, params: &Value) -> HandlerResult {
+    let id = param_str_required(params, "id")?;
+    serialize(
+        db.explanation_update(
+            id,
+            param_str(params, "title"),
+            param_str(params, "explanation_type"),
+            param_str(params, "summary"),
+            param_str(params, "status"),
+            param_str(params, "confidence"),
+        )
+        .map_err(db_err)?,
+    )
+}
+
+fn handle_claim_create(
+    db: &Database,
+    params: &Value,
+    author: &str,
+    author_type: &str,
+) -> HandlerResult {
+    serialize(
+        db.claim_create(
+            param_str_required(params, "explanation_id")?,
+            param_str_required(params, "text")?,
+            param_str(params, "claim_type"),
+            param_str(params, "status"),
+            param_str(params, "confidence"),
+            author,
+            author_type,
+        )
+        .map_err(db_err)?,
+    )
+}
+
+fn handle_claim_update(db: &Database, params: &Value) -> HandlerResult {
+    serialize(
+        db.claim_update(
+            param_str_required(params, "id")?,
+            param_str(params, "text"),
+            param_str(params, "claim_type"),
+            param_str(params, "status"),
+            param_str(params, "confidence"),
+        )
+        .map_err(db_err)?,
+    )
+}
+
+fn handle_question_create(
+    db: &Database,
+    params: &Value,
+    author: &str,
+    author_type: &str,
+) -> HandlerResult {
+    serialize(
+        db.open_question_create(
+            param_str_required(params, "explanation_id")?,
+            param_str_required(params, "question")?,
+            param_str(params, "priority"),
+            param_str(params, "status"),
+            author,
+            author_type,
+        )
+        .map_err(db_err)?,
+    )
+}
+
+fn handle_question_update(db: &Database, params: &Value) -> HandlerResult {
+    serialize(
+        db.open_question_update(
+            param_str_required(params, "id")?,
+            param_str(params, "question"),
+            param_str(params, "priority"),
+            param_str(params, "status"),
+        )
+        .map_err(db_err)?,
+    )
+}
+
+fn handle_state_create(
+    db: &Database,
+    params: &Value,
+    author: &str,
+    author_type: &str,
+) -> HandlerResult {
+    serialize(
+        db.state_create(
+            param_str_required(params, "explanation_id")?,
+            param_str_required(params, "name")?,
+            param_str(params, "description"),
+            param_bool(params, "is_initial"),
+            param_bool(params, "is_terminal"),
+            author,
+            author_type,
+        )
+        .map_err(db_err)?,
+    )
+}
+
+fn handle_state_update(db: &Database, params: &Value) -> HandlerResult {
+    serialize(
+        db.state_update(
+            param_str_required(params, "id")?,
+            param_str(params, "name"),
+            param_str(params, "description"),
+            params.get("is_initial").and_then(Value::as_bool),
+            params.get("is_terminal").and_then(Value::as_bool),
+        )
+        .map_err(db_err)?,
+    )
+}
+
+fn handle_transition_create(
+    db: &Database,
+    params: &Value,
+    author: &str,
+    author_type: &str,
+) -> HandlerResult {
+    serialize(
+        db.transition_create(
+            param_str_required(params, "explanation_id")?,
+            param_str_required(params, "from_state")?,
+            param_str_required(params, "to_state")?,
+            param_str(params, "event"),
+            param_str(params, "guard"),
+            param_str(params, "action"),
+            param_str(params, "description"),
+            author,
+            author_type,
+        )
+        .map_err(db_err)?,
+    )
+}
+
+fn handle_transition_update(db: &Database, params: &Value) -> HandlerResult {
+    serialize(
+        db.transition_update(
+            param_str_required(params, "id")?,
+            param_str(params, "from_state"),
+            param_str(params, "to_state"),
+            param_str(params, "event"),
+            param_str(params, "guard"),
+            param_str(params, "action"),
+            param_str(params, "description"),
+        )
+        .map_err(db_err)?,
+    )
+}
+
+fn handle_evidence_link(
+    db: &Database,
+    params: &Value,
+    author: &str,
+    author_type: &str,
+) -> HandlerResult {
     let target_type = param_str_required(params, "target_type")?;
     let target_id = param_str_required(params, "target_id")?;
     let evidence = NewEvidence {
@@ -663,6 +952,230 @@ fn handle_evidence_link(db: &Database, params: &Value, author: &str) -> HandlerR
         strength: param_str(params, "strength").unwrap_or("moderate"),
         excerpt: param_str(params, "excerpt"),
         author,
+        author_type,
     };
     serialize(db.evidence_link(&evidence).map_err(db_err)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::Database;
+
+    fn db() -> Database {
+        Database::in_memory("t").unwrap()
+    }
+
+    fn call(db: &Database, tool: &str, args: &Value, who: &str, kind: &str) -> Value {
+        dispatch(db, tool, args, who, kind).expect("dispatch ok")
+    }
+
+    #[test]
+    fn author_type_is_caller_controlled_not_hardcoded() {
+        let db = db();
+        let item = call(
+            &db,
+            "item_create",
+            &json!({"name": "httpd", "item_type": "elf"}),
+            "alice",
+            "human",
+        );
+        let item_id = item["id"].as_str().unwrap().to_string();
+
+        // Same tool, two callers → two author_types. This is the parity guarantee:
+        // a human write and an agent write share one code path.
+        let human = call(
+            &db,
+            "note_create",
+            &json!({"item_id": item_id, "title": "t", "content": "c"}),
+            "alice",
+            "human",
+        );
+        assert_eq!(human["author_type"], "human");
+        assert_eq!(human["author"], "alice");
+
+        let agent = call(
+            &db,
+            "note_create",
+            &json!({"item_id": item_id, "title": "t2", "content": "c"}),
+            "claude",
+            "agent",
+        );
+        assert_eq!(agent["author_type"], "agent");
+    }
+
+    #[test]
+    fn granular_child_tools_give_full_crud_via_dispatch() {
+        let db = db();
+        let expl = call(
+            &db,
+            "explanation_upsert",
+            &json!({"stable_key": "e.1", "title": "E"}),
+            "alice",
+            "human",
+        );
+        let expl_id = expl["explanation"]["id"].as_str().unwrap().to_string();
+
+        // claim: create (human-stamped) → update → delete
+        let claim = call(
+            &db,
+            "claim_create",
+            &json!({"explanation_id": expl_id, "text": "C"}),
+            "alice",
+            "human",
+        );
+        assert_eq!(claim["author_type"], "human");
+        let cid = claim["id"].as_str().unwrap().to_string();
+        let upd = call(
+            &db,
+            "claim_update",
+            &json!({"id": cid, "status": "supported"}),
+            "alice",
+            "human",
+        );
+        assert_eq!(upd["status"], "supported");
+        call(&db, "claim_delete", &json!({"id": cid}), "alice", "human");
+
+        // open question: create → delete
+        let q = call(
+            &db,
+            "open_question_create",
+            &json!({"explanation_id": expl_id, "question": "Q?"}),
+            "alice",
+            "human",
+        );
+        let qid = q["id"].as_str().unwrap().to_string();
+        call(
+            &db,
+            "open_question_delete",
+            &json!({"id": qid}),
+            "alice",
+            "human",
+        );
+
+        // evidence: create → delete
+        let claim2 = call(
+            &db,
+            "claim_create",
+            &json!({"explanation_id": expl_id, "text": "C2"}),
+            "alice",
+            "human",
+        );
+        let c2 = claim2["id"].as_str().unwrap().to_string();
+        let ev = call(
+            &db,
+            "evidence_link",
+            &json!({"target_type": "claim", "target_id": c2, "external_locator": "FUN_x", "external_kind": "ghidra"}),
+            "alice",
+            "human",
+        );
+        assert_eq!(ev["author_type"], "human");
+        let evid = ev["id"].as_str().unwrap().to_string();
+        call(
+            &db,
+            "evidence_delete",
+            &json!({"id": evid}),
+            "alice",
+            "human",
+        );
+
+        // explanation: update envelope → delete
+        let eu = call(
+            &db,
+            "explanation_update",
+            &json!({"id": expl_id, "status": "reviewed"}),
+            "alice",
+            "human",
+        );
+        assert_eq!(eu["status"], "reviewed");
+        call(
+            &db,
+            "explanation_delete",
+            &json!({"id": expl_id}),
+            "alice",
+            "human",
+        );
+        assert!(db.explanation_list(None, None).unwrap().is_empty());
+    }
+
+    #[test]
+    fn state_machine_tools_and_generated_text() {
+        let db = db();
+        let expl = call(
+            &db,
+            "explanation_upsert",
+            &json!({"stable_key": "sm.1", "title": "Auth", "explanation_type": "state_machine"}),
+            "alice",
+            "human",
+        );
+        let expl_id = expl["explanation"]["id"].as_str().unwrap().to_string();
+
+        for (name, init) in [("UNAUTH", true), ("AUTHED", false)] {
+            call(
+                &db,
+                "state_create",
+                &json!({"explanation_id": expl_id, "name": name, "is_initial": init}),
+                "alice",
+                "human",
+            );
+        }
+        let detail = call(
+            &db,
+            "explanation_get",
+            &json!({"id": expl_id}),
+            "alice",
+            "human",
+        );
+        let states = detail["states"].as_array().unwrap().clone();
+        let from = states[0]["stable_key"].as_str().unwrap().to_string();
+        let to = states[1]["stable_key"].as_str().unwrap().to_string();
+
+        let t = call(
+            &db,
+            "transition_create",
+            &json!({"explanation_id": expl_id, "from_state": from, "to_state": to, "event": "LOGIN", "guard": "ok"}),
+            "alice",
+            "human",
+        );
+        assert_eq!(t["author_type"], "human");
+
+        // A transition to an unknown state is rejected.
+        assert!(dispatch(
+            &db,
+            "transition_create",
+            &json!({"explanation_id": expl_id, "from_state": from, "to_state": "nope"}),
+            "alice",
+            "human",
+        )
+        .is_err());
+
+        // explanation_get carries the on-the-fly text diagram.
+        let detail = call(
+            &db,
+            "explanation_get",
+            &json!({"id": expl_id}),
+            "alice",
+            "human",
+        );
+        let text = detail["diagram_text"].as_str().unwrap();
+        assert!(text.contains("UNAUTH --LOGIN [ok]--> AUTHED"));
+
+        // Deleting a state prunes its transitions.
+        let state_id = states[0]["id"].as_str().unwrap().to_string();
+        call(
+            &db,
+            "state_delete",
+            &json!({"id": state_id}),
+            "alice",
+            "human",
+        );
+        let detail = call(
+            &db,
+            "explanation_get",
+            &json!({"id": expl_id}),
+            "alice",
+            "human",
+        );
+        assert!(detail["transitions"].as_array().unwrap().is_empty());
+    }
 }

@@ -250,6 +250,45 @@ CREATE INDEX IF NOT EXISTS idx_claims_explanation ON claims(explanation_id);
 CREATE INDEX IF NOT EXISTS idx_questions_explanation ON open_questions(explanation_id);
 CREATE INDEX IF NOT EXISTS idx_evidence_target ON evidence_links(target_type, target_id);
 
+-- Typed content for state_machine explanations: states + transitions are the
+-- editable source of truth. Diagrams (visual + text) are generated on the fly
+-- from these rows, never stored. from_state/to_state reference states.stable_key
+-- within the same explanation.
+CREATE TABLE IF NOT EXISTS states (
+    id TEXT PRIMARY KEY,
+    explanation_id TEXT NOT NULL REFERENCES explanations(id) ON DELETE CASCADE,
+    stable_key TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    is_initial INTEGER NOT NULL DEFAULT 0,
+    is_terminal INTEGER NOT NULL DEFAULT 0,
+    author TEXT NOT NULL,
+    author_type TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE (explanation_id, stable_key)
+);
+
+CREATE TABLE IF NOT EXISTS transitions (
+    id TEXT PRIMARY KEY,
+    explanation_id TEXT NOT NULL REFERENCES explanations(id) ON DELETE CASCADE,
+    stable_key TEXT NOT NULL,
+    from_state TEXT NOT NULL,
+    to_state TEXT NOT NULL,
+    event TEXT NOT NULL DEFAULT '',
+    guard TEXT,
+    action TEXT,
+    description TEXT NOT NULL DEFAULT '',
+    author TEXT NOT NULL,
+    author_type TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE (explanation_id, stable_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_states_explanation ON states(explanation_id);
+CREATE INDEX IF NOT EXISTS idx_transitions_explanation ON transitions(explanation_id);
+
 -- Cascade cleanup of polymorphic references on delete.
 CREATE TRIGGER IF NOT EXISTS explanations_delete_connections AFTER DELETE ON explanations BEGIN
     DELETE FROM connections WHERE
