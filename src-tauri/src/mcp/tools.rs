@@ -37,7 +37,7 @@ pub fn list_all() -> Vec<Value> {
 fn project_tools() -> Vec<Value> {
     vec![
         tool_no_params("project_get", "Get project metadata"),
-        tool_no_params("project_summary", "High-level overview: all items with status/counts, severity breakdown, registered tags, registered connection types"),
+        tool_no_params("project_summary", "High-level overview: all items with status/counts, severity breakdown, recent activity, registered tags, registered connection types"),
         tool("changes_since", "All entities created or updated after the given timestamp, grouped by type",
             &json!({"since": {"type": "string", "description": "ISO 8601 timestamp"}}),
             &["since"]),
@@ -308,10 +308,14 @@ fn search_tools() -> Vec<Value> {
     vec![
         tool(
             "search",
-            "Full-text search across all entities. Returns matches with snippets.",
+            "Full-text search across all entities. Returns matches with snippets. Optional filters narrow results; a filter that can't apply to an entity kind (e.g. severity on items) drops that kind from the results.",
             &json!({
                 "query": {"type": "string"},
-                "entity_type": {"type": "string", "enum": ["item", "note", "item_of_interest", "connection"]}
+                "entity_type": {"type": "string", "enum": ["item", "note", "item_of_interest", "connection"]},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "severity": {"type": "string", "enum": ["critical", "high", "medium", "low", "info"]},
+                "connection_type": {"type": "string"},
+                "author_type": {"type": "string", "enum": ["human", "agent"]}
             }),
             &["query"],
         ),

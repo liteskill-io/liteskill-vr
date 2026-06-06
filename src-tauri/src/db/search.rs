@@ -1,26 +1,93 @@
 use std::fmt::Write;
 
-use rusqlite::params;
-
 use super::error::{DbError, Result};
 use super::models::SearchResult;
 use super::{parse_tag_list, Database, TAG_SEP};
 
-impl Database {
-    pub fn search(&self, query: &str, entity_type: Option<&str>) -> Result<Vec<SearchResult>> {
-        let mut results = Vec::new();
+type Params = Vec<Box<dyn rusqlite::types::ToSql>>;
 
-        if entity_type.is_none() || entity_type == Some("item") {
-            results.extend(self.search_items(query)?);
+/// Optional filters that narrow a full-text [`Database::search`].
+///
+/// A filter that does not apply to an entity kind (e.g. `severity` on items)
+/// excludes that kind from the results entirely, so a severity filter makes
+/// `search` return only items of interest.
+#[derive(Default)]
+pub struct SearchFilters<'a> {
+    pub tags: Option<&'a [String]>,
+    pub severity: Option<&'a str>,
+    pub connection_type: Option<&'a str>,
+    pub author_type: Option<&'a str>,
+}
+
+// Append ` AND <col> = ?n` for an optional equality filter.
+fn push_eq(sql: &mut String, pv: &mut Params, col: &str, val: Option<&str>) {
+    if let Some(v) = val {
+        pv.push(Box::new(v.to_string()));
+        let _ = write!(sql, " AND {col} = ?{}", pv.len());
+    }
+}
+
+// Append an `EXISTS` clause per tag against a `<join>(<fk>, tag_name)` table.
+fn push_tags(
+    sql: &mut String,
+    pv: &mut Params,
+    join: &str,
+    fk: &str,
+    id_expr: &str,
+    tags: Option<&[String]>,
+) {
+    if let Some(tags) = tags {
+        for tag in tags {
+            pv.push(Box::new(tag.clone()));
+            let _ = write!(
+                sql,
+                " AND EXISTS(SELECT 1 FROM {join} WHERE {fk} = {id_expr} AND tag_name = ?{})",
+                pv.len()
+            );
         }
-        if entity_type.is_none() || entity_type == Some("note") {
-            results.extend(self.search_notes(query)?);
+    }
+}
+
+fn params_ref(pv: &Params) -> Vec<&dyn rusqlite::types::ToSql> {
+    pv.iter().map(std::convert::AsRef::as_ref).collect()
+}
+
+impl Database {
+    pub fn search(
+        &self,
+        query: &str,
+        entity_type: Option<&str>,
+        filters: &SearchFilters<'_>,
+    ) -> Result<Vec<SearchResult>> {
+        let mut results = Vec::new();
+        let want = |et: &str| entity_type.is_none() || entity_type == Some(et);
+
+        // Each entity kind only participates when no filter that is inapplicable
+        // to it has been set.
+        if want("item")
+            && filters.severity.is_none()
+            && filters.connection_type.is_none()
+            && filters.author_type.is_none()
+        {
+            results.extend(self.search_items(query, filters.tags)?);
         }
-        if entity_type.is_none() || entity_type == Some("item_of_interest") {
-            results.extend(self.search_iois(query)?);
+        if want("note") && filters.severity.is_none() && filters.connection_type.is_none() {
+            results.extend(self.search_notes(query, filters.tags, filters.author_type)?);
         }
-        if entity_type.is_none() || entity_type == Some("connection") {
-            results.extend(self.search_connections_fts(query)?);
+        if want("item_of_interest") && filters.connection_type.is_none() {
+            results.extend(self.search_iois(
+                query,
+                filters.tags,
+                filters.severity,
+                filters.author_type,
+            )?);
+        }
+        if want("connection") && filters.tags.is_none() && filters.severity.is_none() {
+            results.extend(self.search_connections_fts(
+                query,
+                filters.connection_type,
+                filters.author_type,
+            )?);
         }
         Ok(results)
     }
@@ -245,14 +312,18 @@ impl Database {
         Ok(total)
     }
 
-    fn search_items(&self, query: &str) -> Result<Vec<SearchResult>> {
-        let mut stmt = self.conn.prepare(
+    fn search_items(&self, query: &str, tags: Option<&[String]>) -> Result<Vec<SearchResult>> {
+        let mut sql = String::from(
             "SELECT f.id, i.name, snippet(fts_items, 2, '<b>', '</b>', '...', 32)
              FROM fts_items f JOIN items i ON i.id = f.id
              WHERE fts_items MATCH ?1",
-        )?;
+        );
+        let mut pv: Params = vec![Box::new(query.to_string())];
+        push_tags(&mut sql, &mut pv, "item_tags", "item_id", "i.id", tags);
+
+        let mut stmt = self.conn.prepare(&sql)?;
         let results = stmt
-            .query_map(params![query], |row| {
+            .query_map(params_ref(&pv).as_slice(), |row| {
                 Ok(SearchResult {
                     entity_type: "item".to_string(),
                     entity_id: row.get(0)?,
@@ -266,16 +337,26 @@ impl Database {
         Ok(results)
     }
 
-    fn search_notes(&self, query: &str) -> Result<Vec<SearchResult>> {
-        let mut stmt = self.conn.prepare(
+    fn search_notes(
+        &self,
+        query: &str,
+        tags: Option<&[String]>,
+        author_type: Option<&str>,
+    ) -> Result<Vec<SearchResult>> {
+        let mut sql = String::from(
             "SELECT f.id, f.item_id, n.title, i.name, snippet(fts_notes, 3, '<b>', '</b>', '...', 32)
              FROM fts_notes f
              JOIN notes n ON n.id = f.id
              LEFT JOIN items i ON i.id = f.item_id
              WHERE fts_notes MATCH ?1",
-        )?;
+        );
+        let mut pv: Params = vec![Box::new(query.to_string())];
+        push_eq(&mut sql, &mut pv, "n.author_type", author_type);
+        push_tags(&mut sql, &mut pv, "note_tags", "note_id", "n.id", tags);
+
+        let mut stmt = self.conn.prepare(&sql)?;
         let results = stmt
-            .query_map(params![query], |row| {
+            .query_map(params_ref(&pv).as_slice(), |row| {
                 Ok(SearchResult {
                     entity_type: "note".to_string(),
                     entity_id: row.get(0)?,
@@ -289,16 +370,28 @@ impl Database {
         Ok(results)
     }
 
-    fn search_iois(&self, query: &str) -> Result<Vec<SearchResult>> {
-        let mut stmt = self.conn.prepare(
+    fn search_iois(
+        &self,
+        query: &str,
+        tags: Option<&[String]>,
+        severity: Option<&str>,
+        author_type: Option<&str>,
+    ) -> Result<Vec<SearchResult>> {
+        let mut sql = String::from(
             "SELECT f.id, f.item_id, o.title, i.name, snippet(fts_ioi, 3, '<b>', '</b>', '...', 32)
              FROM fts_ioi f
              JOIN items_of_interest o ON o.id = f.id
              JOIN items i ON i.id = f.item_id
              WHERE fts_ioi MATCH ?1",
-        )?;
+        );
+        let mut pv: Params = vec![Box::new(query.to_string())];
+        push_eq(&mut sql, &mut pv, "o.severity", severity);
+        push_eq(&mut sql, &mut pv, "o.author_type", author_type);
+        push_tags(&mut sql, &mut pv, "ioi_tags", "ioi_id", "o.id", tags);
+
+        let mut stmt = self.conn.prepare(&sql)?;
         let results = stmt
-            .query_map(params![query], |row| {
+            .query_map(params_ref(&pv).as_slice(), |row| {
                 Ok(SearchResult {
                     entity_type: "item_of_interest".to_string(),
                     entity_id: row.get(0)?,
@@ -312,13 +405,25 @@ impl Database {
         Ok(results)
     }
 
-    fn search_connections_fts(&self, query: &str) -> Result<Vec<SearchResult>> {
-        let mut stmt = self.conn.prepare(
+    fn search_connections_fts(
+        &self,
+        query: &str,
+        connection_type: Option<&str>,
+        author_type: Option<&str>,
+    ) -> Result<Vec<SearchResult>> {
+        let mut sql = String::from(
             "SELECT f.id, snippet(fts_connections, 1, '<b>', '</b>', '...', 32)
-             FROM fts_connections f WHERE fts_connections MATCH ?1",
-        )?;
+             FROM fts_connections f
+             JOIN connections c ON c.id = f.id
+             WHERE fts_connections MATCH ?1",
+        );
+        let mut pv: Params = vec![Box::new(query.to_string())];
+        push_eq(&mut sql, &mut pv, "c.connection_type", connection_type);
+        push_eq(&mut sql, &mut pv, "c.author_type", author_type);
+
+        let mut stmt = self.conn.prepare(&sql)?;
         let results = stmt
-            .query_map(params![query], |row| {
+            .query_map(params_ref(&pv).as_slice(), |row| {
                 Ok(SearchResult {
                     entity_type: "connection".to_string(),
                     entity_id: row.get(0)?,
@@ -397,7 +502,9 @@ mod tests {
     fn search_across_all_entities() {
         let db = test_db();
         setup_data(&db);
-        let results = db.search("buffer overflow", None).unwrap();
+        let results = db
+            .search("buffer overflow", None, &SearchFilters::default())
+            .unwrap();
         assert!(!results.is_empty());
     }
 
@@ -405,8 +512,79 @@ mod tests {
     fn search_filtered_by_entity_type() {
         let db = test_db();
         setup_data(&db);
-        let results = db.search("httpd", Some("item")).unwrap();
+        let results = db
+            .search("httpd", Some("item"), &SearchFilters::default())
+            .unwrap();
         assert!(results.iter().all(|r| r.entity_type == "item"));
+    }
+
+    #[test]
+    fn search_severity_filter_restricts_to_iois() {
+        let db = test_db();
+        setup_data(&db);
+        // Baseline: unfiltered, "buffer" matches both the note ("buffer overflow")
+        // and the IOI ("Stack buffer overflow"). Establish that the note IS in the
+        // unfiltered results, so the filter assertion below proves real dropping.
+        let baseline = db
+            .search("buffer", None, &SearchFilters::default())
+            .unwrap();
+        assert!(baseline.iter().any(|r| r.entity_type == "note"));
+        assert!(baseline.iter().any(|r| r.entity_type == "item_of_interest"));
+
+        // A severity filter must drop the note (notes have no severity), leaving
+        // only the IOI.
+        let filters = SearchFilters {
+            severity: Some("critical"),
+            ..Default::default()
+        };
+        let results = db.search("buffer", None, &filters).unwrap();
+        assert!(!results.is_empty());
+        assert!(results.iter().all(|r| r.entity_type == "item_of_interest"));
+
+        // The IOI is "critical", so a "low" filter drops it too → nothing left.
+        let none = SearchFilters {
+            severity: Some("low"),
+            ..Default::default()
+        };
+        assert!(db.search("buffer", None, &none).unwrap().is_empty());
+    }
+
+    #[test]
+    fn search_tag_filter() {
+        let db = test_db();
+        setup_data(&db);
+        // The note and the IOI both match "buffer", but only the IOI carries the
+        // memory-corruption tag.
+        let filters = SearchFilters {
+            tags: Some(&["memory-corruption".to_string()]),
+            ..Default::default()
+        };
+        let results = db.search("buffer", None, &filters).unwrap();
+        assert!(results.iter().all(|r| r.entity_type == "item_of_interest"));
+        assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn search_author_type_filter() {
+        let db = test_db();
+        setup_data(&db);
+        // The only "links"-matching entity is the connection, authored by a human.
+        // Filtering by the matching author_type returns it...
+        let human = SearchFilters {
+            author_type: Some("human"),
+            ..Default::default()
+        };
+        let results = db.search("links", None, &human).unwrap();
+        assert!(!results.is_empty());
+        assert!(results.iter().all(|r| r.entity_type == "connection"));
+
+        // ...and filtering by the other author_type drops it. This proves the
+        // filter is actually consulted (without it, "agent" would also match).
+        let agent = SearchFilters {
+            author_type: Some("agent"),
+            ..Default::default()
+        };
+        assert!(db.search("links", None, &agent).unwrap().is_empty());
     }
 
     #[test]

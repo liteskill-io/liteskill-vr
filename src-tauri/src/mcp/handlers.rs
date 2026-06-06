@@ -2,7 +2,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 
 use crate::db::error::DbError;
-use crate::db::{Database, NewConnection, NewIoi};
+use crate::db::{Database, NewConnection, NewIoi, SearchFilters};
 
 pub type HandlerResult = Result<Value, String>;
 
@@ -198,8 +198,15 @@ pub fn dispatch(db: &Database, tool_name: &str, params: &Value, author: &str) ->
         // Search & Filter
         "search" => {
             let query = param_str_required(params, "query")?;
+            let tags = param_tags_opt(params, "tags");
+            let filters = SearchFilters {
+                tags: tags.as_deref(),
+                severity: param_str(params, "severity"),
+                connection_type: param_str(params, "connection_type"),
+                author_type: param_str(params, "author_type"),
+            };
             serialize(
-                db.search(query, param_str(params, "entity_type"))
+                db.search(query, param_str(params, "entity_type"), &filters)
                     .map_err(db_err)?,
             )
         }
@@ -242,11 +249,14 @@ fn handle_project_summary(db: &Database) -> HandlerResult {
         }
     }
 
+    let recent = db.recent_activity(10).map_err(db_err)?;
+
     Ok(json!({
         "items": serde_json::to_value(&items).unwrap_or_default(),
         "severity_summary": severity_counts,
         "tags": serde_json::to_value(&tags).unwrap_or_default(),
         "connection_types": serde_json::to_value(&conn_types).unwrap_or_default(),
+        "recent_activity": serde_json::to_value(&recent).unwrap_or_default(),
     }))
 }
 

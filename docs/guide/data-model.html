@@ -181,7 +181,8 @@
 
         <h2>Duplicate detection</h2>
         <p>When creating an item of interest, the system checks for an existing entry on
-           the same item with a matching title or matching location. If a potential
+           the same item with a <strong>case-insensitive, whitespace-trimmed title
+           match</strong> or an <strong>exact location match</strong>. If a potential
            duplicate is found, the response includes a <code>duplicate_warning</code>
            field — but the create still succeeds; the agent or user decides whether to
            proceed.</p>
@@ -189,8 +190,10 @@
         <h2>Search &amp; filter</h2>
         <ul>
         <li><strong><code>search</code></strong> — full-text search via SQLite FTS5 across
-            items, notes, items of interest, and connections; requires a text query, with an
-            optional <code>entity_type</code> to narrow to one kind. Returns highlighted
+            items, notes, items of interest, and connections; requires a text query. Optional
+            filters narrow results (<code>entity_type</code>, <code>tags</code>,
+            <code>severity</code>, <code>connection_type</code>, <code>author_type</code>); a
+            filter that can't apply to an entity kind drops that kind. Returns highlighted
             snippets.</li>
         <li><strong><code>filter</code></strong> — structured query with no text search;
             requires <code>entity_type</code>, then per-type filters (items:

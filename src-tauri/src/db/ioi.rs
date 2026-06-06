@@ -138,9 +138,14 @@ impl Database {
         title: &str,
         location: Option<&str>,
     ) -> Result<Option<DuplicateWarning>> {
+        // "Similar" title = case-insensitive, whitespace-trimmed match (so
+        // "Parse_Header()" warns against an existing "parse_header()"). Location,
+        // when present, must match exactly — addresses/offsets are precise.
         let result: std::result::Result<(String, String), _> = self.conn.query_row(
             "SELECT id, title FROM items_of_interest
-             WHERE item_id = ?1 AND (title = ?2 OR (location IS NOT NULL AND location = ?3))",
+             WHERE item_id = ?1
+               AND (LOWER(TRIM(title)) = LOWER(TRIM(?2))
+                    OR (location IS NOT NULL AND location = ?3))",
             params![item_id, title, location],
             |row| Ok((row.get(0)?, row.get(1)?)),
         );
@@ -265,6 +270,40 @@ mod tests {
             .ioi_create(&NewIoi {
                 item_id: &item_id,
                 title: "parse_header()",
+                description: "second",
+                location: None,
+                severity: None,
+                status: None,
+                author: "user",
+                author_type: "human",
+                tags: &[],
+            })
+            .unwrap();
+        assert!(warning.is_some());
+        assert_eq!(warning.unwrap().existing_title, "parse_header()");
+    }
+
+    #[test]
+    fn duplicate_detection_is_case_and_whitespace_insensitive() {
+        let db = test_db();
+        let item_id = create_test_item(&db);
+        db.ioi_create(&NewIoi {
+            item_id: &item_id,
+            title: "parse_header()",
+            description: "first",
+            location: None,
+            severity: None,
+            status: None,
+            author: "user",
+            author_type: "human",
+            tags: &[],
+        })
+        .unwrap();
+        // Different case + surrounding whitespace should still be flagged.
+        let (_, warning) = db
+            .ioi_create(&NewIoi {
+                item_id: &item_id,
+                title: "  Parse_Header()  ",
                 description: "second",
                 location: None,
                 severity: None,

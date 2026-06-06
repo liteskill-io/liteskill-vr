@@ -40,6 +40,15 @@ pub struct ChangesSince {
     pub items_of_interest: Vec<ChangedIoi>,
 }
 
+/// The most recently touched entities, newest first — surfaced by
+/// `project_summary` so an agent can see what changed last without a timestamp.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecentActivity {
+    pub items: Vec<ChangedItem>,
+    pub notes: Vec<ChangedNote>,
+    pub items_of_interest: Vec<ChangedIoi>,
+}
+
 impl Database {
     pub fn project_get(&self) -> Result<Project> {
         self.conn
@@ -121,6 +130,65 @@ impl Database {
             items_of_interest: iois,
         })
     }
+
+    /// The `limit` most recently created/updated entities of each kind, newest
+    /// first.
+    pub fn recent_activity(&self, limit: i64) -> Result<RecentActivity> {
+        let mut items_stmt = self.conn.prepare(
+            "SELECT id, name, item_type, created_at, updated_at FROM items
+             ORDER BY updated_at DESC LIMIT ?1",
+        )?;
+        let items = items_stmt
+            .query_map(params![limit], |row| {
+                Ok(ChangedItem {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    item_type: row.get(2)?,
+                    created_at: row.get(3)?,
+                    updated_at: row.get(4)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        let mut notes_stmt = self.conn.prepare(
+            "SELECT id, item_id, title, author, created_at FROM notes
+             ORDER BY updated_at DESC LIMIT ?1",
+        )?;
+        let notes = notes_stmt
+            .query_map(params![limit], |row| {
+                Ok(ChangedNote {
+                    id: row.get(0)?,
+                    item_id: row.get(1)?,
+                    title: row.get(2)?,
+                    author: row.get(3)?,
+                    created_at: row.get(4)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        let mut iois_stmt = self.conn.prepare(
+            "SELECT id, item_id, title, severity, author, created_at FROM items_of_interest
+             ORDER BY updated_at DESC LIMIT ?1",
+        )?;
+        let iois = iois_stmt
+            .query_map(params![limit], |row| {
+                Ok(ChangedIoi {
+                    id: row.get(0)?,
+                    item_id: row.get(1)?,
+                    title: row.get(2)?,
+                    severity: row.get(3)?,
+                    author: row.get(4)?,
+                    created_at: row.get(5)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        Ok(RecentActivity {
+            items,
+            notes,
+            items_of_interest: iois,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -146,5 +214,20 @@ mod tests {
         let changes = db.changes_since(&before).unwrap();
         assert_eq!(changes.items.len(), 1);
         assert_eq!(changes.items[0].name, "httpd");
+    }
+
+    #[test]
+    fn recent_activity_is_newest_first_and_capped() {
+        let db = test_db();
+        for n in 0..5 {
+            db.item_create(&format!("item{n}"), "elf", None, None, "", &[])
+                .unwrap();
+        }
+        let recent = db.recent_activity(3).unwrap();
+        assert_eq!(recent.items.len(), 3);
+        // Most recently created item comes first.
+        assert_eq!(recent.items[0].name, "item4");
+        assert!(recent.notes.is_empty());
+        assert!(recent.items_of_interest.is_empty());
     }
 }

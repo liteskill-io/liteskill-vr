@@ -179,13 +179,13 @@ All entities support deletion:
 
 ## Duplicate Detection
 
-When creating an item of interest, the system checks for an existing entry on the same item with a matching title or matching location. If a potential duplicate is found, the response includes a `duplicate_warning` field with the ID and title of the existing entry. The create still succeeds — the agent or user decides whether to proceed.
+When creating an item of interest, the system checks for an existing entry on the same item with a **case-insensitive, whitespace-trimmed title match** or an **exact location match**. If a potential duplicate is found, the response includes a `duplicate_warning` field with the ID and title of the existing entry. The create still succeeds — the agent or user decides whether to proceed.
 
 ## Search & Filter
 
 Two query modes:
 
-**`search`** — Full-text search via SQLite FTS5 across items, notes, items of interest, and connections. Requires a text query; an optional `entity_type` narrows to one kind. Returns matches with highlighted snippets.
+**`search`** — Full-text search via SQLite FTS5 across items, notes, items of interest, and connections. Requires a text query; optional filters narrow results: `entity_type`, `tags`, `severity`, `connection_type`, `author_type`. A filter that can't apply to an entity kind (e.g. `severity` on items) drops that kind from the results. Returns matches with highlighted snippets.
 
 **`filter`** — Structured query with no text search. Requires `entity_type`; the remaining filters apply per type — items: `item_type`, `analysis_status`, `tags`; items of interest: `item_id`, `severity`, `tags`, `author_type`; notes: `item_id`, `tags`, `author_type`; connections: `connection_type`, `author_type`. Use for queries like "all critical IOIs" or "all connections of type calls."
 

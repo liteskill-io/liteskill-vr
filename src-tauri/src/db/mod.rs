@@ -12,6 +12,7 @@ mod tags;
 
 pub use connections::NewConnection;
 pub use ioi::NewIoi;
+pub use search::SearchFilters;
 
 use rusqlite::Connection;
 use std::path::Path;
