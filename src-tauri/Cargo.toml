@@ -9,6 +9,21 @@ rust-version = "1.77"
 publish = false
 default-run = "liteskill-vr"
 
+# Lint policy lives here (Cargo 1.74+ `[lints]`) rather than in
+# .cargo/config.toml rustflags: it applies only to this crate (not its
+# dependencies) and does not invalidate the build cache between `cargo build`,
+# `cargo clippy`, and rust-analyzer. Lints are kept at `warn` here; CI and the
+# git hooks run clippy with `-D warnings` (see `task rs:clippy`) to make them
+# hard failures.
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+# Pedantic/nursery lints that are too noisy for this codebase.
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+
 [features]
 default = ["gui"]
 gui = ["dep:tauri", "dep:tauri-plugin-opener", "dep:tauri-build"]

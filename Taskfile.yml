@@ -1,0 +1,242 @@
+# Taskfile — the single, canonical way to run every repo workflow.
+# https://taskfile.dev   (install: https://taskfile.dev/installation/)
+#
+# Run `task` (or `task --list`) to see everything. Each task is a thin,
+# documented wrapper around the real implementation so there is exactly ONE
+# correct invocation per workflow. CI (.github/workflows) and the git hooks
+# (lefthook.yml) call these tasks rather than re-spelling the commands, so the
+# definitions here are the source of truth.
+#
+# Layering:
+#   * Frontend atomics delegate to the package.json scripts (the JS-side SoT).
+#   * Rust atomics own their `cargo` invocations here (previously duplicated
+#     across package.json, lefthook, and CI — now defined once).
+#   * Umbrella tasks (fmt, lint, test, check, ci) compose the atomics.
+#
+# Prerequisites: `task`, `pnpm`, and the Rust toolchain on PATH. Run
+# `task setup` once to install JS deps and the git hooks. Pass extra args after
+# `--`, e.g. `task rs:test -- search`.
+
+version: "3"
+
+vars:
+  TAURI: "{{.ROOT_DIR}}/src-tauri"
+
+tasks:
+  default:
+    desc: "List all tasks"
+    silent: true
+    cmds:
+      - task --list
+
+  # ----------------------------------------------------------------- setup ---
+  setup:
+    desc: "Install JS dependencies and the git hooks (lefthook)"
+    cmds:
+      - pnpm install
+      - 'if [ -z "${CI:-}" ] && git rev-parse --git-dir >/dev/null 2>&1; then pnpm exec lefthook install; else echo "CI or non-git checkout — skipping git hooks"; fi'
+
+  # ------------------------------------------------------------------- dev ---
+  dev:
+    desc: "Start the Tauri app in dev mode"
+    cmds:
+      - pnpm tauri dev {{.CLI_ARGS}}
+
+  dev:web:
+    desc: "Start only the Vite dev server (no Tauri shell)"
+    cmds:
+      - pnpm dev {{.CLI_ARGS}}
+
+  # ----------------------------------------------------------------- build ---
+  build:
+    desc: "Build the release app + installers (.deb/.rpm/.AppImage on Linux)"
+    cmds:
+      - APPIMAGE_EXTRACT_AND_RUN=1 NO_STRIP=1 pnpm tauri build {{.CLI_ARGS}}
+
+  build:nobundle:
+    desc: "Build the release binary only (no installers)"
+    cmds:
+      - pnpm tauri build --no-bundle {{.CLI_ARGS}}
+
+  build:mcp:
+    desc: "Build the headless liteskillvr-mcp binary (no GUI/Tauri deps)"
+    dir: "{{.TAURI}}"
+    cmds:
+      - cargo build --release --bin liteskillvr-mcp --no-default-features
+
+  # ----------------------------------------------------- frontend atomics ---
+  fe:typecheck:
+    desc: "Type-check the frontend + node config files (tsc)"
+    cmds:
+      - pnpm typecheck
+
+  fe:lint:
+    desc: "Lint the frontend (eslint)"
+    cmds:
+      - pnpm lint
+
+  fe:lint:fix:
+    desc: "Lint and auto-fix the frontend (eslint --fix)"
+    cmds:
+      - pnpm lint:fix
+
+  fe:format:
+    desc: "Format all web/config files in place (prettier)"
+    cmds:
+      - pnpm format
+
+  fe:format:check:
+    desc: "Check formatting without modifying (prettier --check)"
+    cmds:
+      - pnpm format:check
+
+  fe:knip:
+    desc: "Find unused files, deps, and exports (knip)"
+    cmds:
+      - pnpm knip
+
+  fe:test:
+    desc: "Run the frontend unit tests (vitest run)"
+    cmds:
+      - pnpm test {{.CLI_ARGS}}
+
+  fe:test:watch:
+    desc: "Run the frontend unit tests in watch mode"
+    cmds:
+      - pnpm test:watch {{.CLI_ARGS}}
+
+  fe:test:coverage:
+    desc: "Run the frontend unit tests with coverage"
+    cmds:
+      - pnpm test:coverage
+
+  fe:test:e2e:
+    desc: "Run the WebdriverIO E2E suite (requires a release build first)"
+    cmds:
+      - pnpm test:e2e {{.CLI_ARGS}}
+
+  # --------------------------------------------------------- rust atomics ---
+  rs:clippy:
+    desc: "Lint the Rust crate, all targets, default features (warnings = errors)"
+    dir: "{{.TAURI}}"
+    cmds:
+      - cargo clippy --all-targets -- -D warnings
+
+  rs:clippy:headless:
+    desc: "Lint the Rust crate with --no-default-features (headless build)"
+    dir: "{{.TAURI}}"
+    cmds:
+      - cargo clippy --all-targets --no-default-features -- -D warnings
+
+  rs:fmt:
+    desc: "Format the Rust crate in place (cargo fmt)"
+    dir: "{{.TAURI}}"
+    cmds:
+      - cargo fmt
+
+  rs:fmt:check:
+    desc: "Check Rust formatting without modifying (cargo fmt --check)"
+    dir: "{{.TAURI}}"
+    cmds:
+      - cargo fmt --check
+
+  rs:test:
+    desc: "Run the Rust test suite (cargo test)"
+    dir: "{{.TAURI}}"
+    cmds:
+      - cargo test {{.CLI_ARGS}}
+
+  rs:deny:
+    desc: "Audit Rust dependencies (advisories, licenses, bans, sources)"
+    dir: "{{.TAURI}}"
+    cmds:
+      - cargo deny check
+
+  # ------------------------------------------------------ format & lint ---
+  fmt:
+    desc: "Format everything (web + Rust) in place"
+    cmds:
+      - task: fe:format
+      - task: rs:fmt
+
+  fmt:check:
+    desc: "Check formatting everywhere (non-mutating)"
+    cmds:
+      - task: fe:format:check
+      - task: rs:fmt:check
+
+  lint:
+    desc: "Lint everything (eslint + clippy, default and headless)"
+    cmds:
+      - task: fe:lint
+      - task: rs:clippy
+      - task: rs:clippy:headless
+
+  typecheck:
+    desc: "Type-check the frontend"
+    cmds:
+      - task: fe:typecheck
+
+  test:
+    desc: "Run all unit tests (frontend + Rust)"
+    cmds:
+      - task: fe:test
+      - task: rs:test
+
+  # -------------------------------------------------------------- checks ---
+  check:fe:
+    desc: "Every non-mutating frontend gate (CI parity)"
+    cmds:
+      - task: fe:typecheck
+      - task: fe:lint
+      - task: fe:format:check
+      - task: fe:knip
+      - task: fe:test
+
+  check:rust:
+    desc: "Every non-mutating Rust gate (CI parity)"
+    cmds:
+      - task: rs:clippy
+      - task: rs:clippy:headless
+      - task: rs:fmt:check
+      - task: rs:test
+      - task: rs:deny
+
+  check:
+    desc: "Run every non-mutating check — frontend + Rust"
+    cmds:
+      - task: check:fe
+      - task: check:rust
+
+  ci:
+    desc: "Alias for `task check` — the gates CI runs"
+    cmds:
+      - task: check
+
+  # ---------------------------------------------------------------- docs ---
+  docs:serve:
+    desc: "Serve the static docs/ site locally at http://localhost:8000"
+    dir: "{{.ROOT_DIR}}/docs"
+    cmds:
+      - python3 -m http.server 8000
+
+  # ----------------------------------------------------- version/release ---
+  version:sync:
+    desc: "Sync package.json version into Cargo.toml and tauri.conf.json"
+    cmds:
+      - bash scripts/sync-version.sh
+
+  release:patch:
+    desc: "Cut a patch release (bump, sync, commit, tag)"
+    cmds:
+      - bash scripts/release.sh patch
+
+  release:minor:
+    desc: "Cut a minor release (bump, sync, commit, tag)"
+    cmds:
+      - bash scripts/release.sh minor
+
+  release:major:
+    desc: "Cut a major release (bump, sync, commit, tag)"
+    cmds:
+      - bash scripts/release.sh major
