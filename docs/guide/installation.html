@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Installation — LiteSkill VR</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/logo.svg">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">
+      <img src="../assets/logo.svg" alt="" class="brand-mark">
+      <span class="brand-name">LITESKILL&nbsp;VR</span>
+      <span class="brand-tag">// guide</span>
+    </a>
+    <nav class="top-nav">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Guide</a>
+      <a href="https://github.com/liteskill-io/liteskill-vr">Source</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <p class="sidebar-section">Guide</p>
+      <ul>
+        <li><a href="index.html">Contents</a></li>
+      </ul>
+      <p class="sidebar-section">Specification</p>
+      <ul>
+        <li><a href="introduction.html">Introduction</a></li>
+      </ul>
+      <p class="sidebar-section">Concept</p>
+      <ul>
+        <li><a href="how-it-works.html">How it works</a></li>
+      </ul>
+      <p class="sidebar-section">User Guide</p>
+      <ul>
+        <li><a href="installation.html" aria-current="page">Installation</a></li>
+        <li><a href="first-project.html">Your first project</a></li>
+        <li><a href="interface.html">The interface</a></li>
+        <li><a href="agents.html">Working with AI agents</a></li>
+        <li><a href="headless-mcp.html">Headless MCP server</a></li>
+      </ul>
+      <p class="sidebar-section">Development</p>
+      <ul>
+        <li><a href="getting-started.html">Development setup</a></li>
+        <li><a href="building.html">Building from source</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="data-model.html">Data model</a></li>
+        <li><a href="mcp-tools.html">MCP tools</a></li>
+      </ul>
+      <p class="sidebar-section">Reference</p>
+      <ul>
+        <li><a href="file-formats.html">File formats</a></li>
+        <li><a href="security.html">Security</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+      <article>
+        <h1>Installation</h1>
+        <p>Pre-built packages for Linux, macOS, and Windows are attached to every
+           <a href="https://github.com/liteskill-io/liteskill-vr/releases/latest">release</a>. Pick the asset for your platform,
+           verify its checksum, and install. There is nothing to configure afterwards —
+           the MCP server starts automatically the first time you open a project.</p>
+
+        <h2>Pick your download</h2>
+        <table>
+        <thead><tr><th>Platform</th><th>Asset</th><th>Notes</th></tr></thead>
+        <tbody>
+        <tr><td>Linux (Debian/Ubuntu)</td><td><code>liteskill-vr_&lt;version&gt;_amd64.deb</code></td><td>Also installs the headless MCP server.</td></tr>
+        <tr><td>Linux (Fedora/RHEL)</td><td><code>liteskill-vr-&lt;version&gt;-1.x86_64.rpm</code></td><td>Also installs the headless MCP server.</td></tr>
+        <tr><td>Linux (any distro)</td><td><code>liteskill-vr_&lt;version&gt;_amd64.AppImage</code></td><td>Self-contained; no install step.</td></tr>
+        <tr><td>macOS (Intel)</td><td><code>liteskill-vr-x86_64-apple-darwin.app.tar.gz</code></td><td>—</td></tr>
+        <tr><td>macOS (Apple Silicon)</td><td><code>liteskill-vr-aarch64-apple-darwin.app.tar.gz</code></td><td>—</td></tr>
+        <tr><td>Windows</td><td><code>liteskill-vr_&lt;version&gt;_x64-setup.exe</code></td><td>NSIS installer (recommended).</td></tr>
+        <tr><td>Windows (MSI)</td><td><code>liteskill-vr_&lt;version&gt;_x64_en-US.msi</code></td><td>For managed/enterprise deploys.</td></tr>
+        </tbody>
+        </table>
+
+        <h2>Verify your download</h2>
+        <p>Every release ships a <code>SHA256SUMS.txt</code>. Confirm the file you
+           downloaded matches before installing:</p>
+        <pre data-lang="bash"><code># Linux
+        sha256sum -c SHA256SUMS.txt --ignore-missing
+
+        # macOS
+        shasum -a 256 -c SHA256SUMS.txt --ignore-missing</code></pre>
+        <pre data-lang="powershell"><code># Windows (PowerShell) — compare against the matching line in SHA256SUMS.txt
+        Get-FileHash .\liteskill-vr_&lt;version&gt;_x64-setup.exe -Algorithm SHA256</code></pre>
+
+        <h2>Install</h2>
+        <h3>Linux — Debian / Ubuntu</h3>
+        <pre data-lang="bash"><code>sudo apt install ./liteskill-vr_&lt;version&gt;_amd64.deb</code></pre>
+        <p>Installs the desktop app and the headless <code>liteskillvr-mcp</code> binary
+           to <code>/usr/bin/</code>, and registers the <code>.lsvr</code> file type.</p>
+
+        <h3>Linux — Fedora / RHEL</h3>
+        <pre data-lang="bash"><code>sudo dnf install ./liteskill-vr-&lt;version&gt;-1.x86_64.rpm</code></pre>
+
+        <h3>Linux — AppImage</h3>
+        <pre data-lang="bash"><code>chmod +x liteskill-vr_&lt;version&gt;_amd64.AppImage
+        ./liteskill-vr_&lt;version&gt;_amd64.AppImage</code></pre>
+        <p>The AppImage is self-contained and needs no installation. If your kernel
+           lacks FUSE, run it with <code>--appimage-extract-and-run</code>.</p>
+
+        <h3>macOS</h3>
+        <pre data-lang="bash"><code>tar -xzf liteskill-vr-&lt;arch&gt;-apple-darwin.app.tar.gz
+        mv "LiteSkill VR.app" /Applications/</code></pre>
+        <p>The bundle is unsigned, so the first launch needs Gatekeeper approval:
+           right-click the app → <strong>Open</strong> → <strong>Open</strong>, or clear
+           the quarantine attribute:</p>
+        <pre data-lang="bash"><code>xattr -dr com.apple.quarantine "/Applications/LiteSkill VR.app"</code></pre>
+
+        <h3>Windows</h3>
+        <p>Run <code>liteskill-vr_&lt;version&gt;_x64-setup.exe</code> and follow the
+           installer, or install the MSI silently for managed deployments:</p>
+        <pre data-lang="powershell"><code>msiexec /i liteskill-vr_&lt;version&gt;_x64_en-US.msi /qn</code></pre>
+
+        <h2>First launch</h2>
+        <p>Open LiteSkill VR, then create or open a project file via the standard file
+           dialog. The MCP server starts automatically and its port appears in the
+           status bar — that's what your AI agent connects to. Continue with
+           <a href="first-project.html">Your first project</a>.</p>
+
+        <h2>Headless / server installs</h2>
+        <p>For CI, servers, and SSH sessions where WebKitGTK isn't available, install
+           only the MCP server. The Linux <code>.deb</code> / <code>.rpm</code> already
+           place it at <code>/usr/bin/liteskillvr-mcp</code>; otherwise grab the
+           standalone <code>liteskillvr-mcp-headless-&lt;target-triple&gt;</code> asset
+           from the release. See <a href="headless-mcp.html">Headless MCP server</a>.</p>
+
+        <h2>Updating</h2>
+        <p>Install the newer package over the old one — <code>apt</code>/<code>dnf</code>
+           upgrade in place, the Windows installer replaces the prior version, and for
+           AppImage/macOS you replace the file or bundle. Your <code>.lsvr</code>
+           projects are independent files and are never touched by an upgrade.</p>
+
+        <h2>Uninstalling</h2>
+        <pre data-lang="bash"><code># Debian/Ubuntu
+        sudo apt remove liteskill-vr
+
+        # Fedora/RHEL
+        sudo dnf remove liteskill-vr
+
+        # AppImage / macOS — just delete the file or the .app bundle</code></pre>
+        <p>On Windows, uninstall from <strong>Settings → Apps</strong>. Project
+           <code>.lsvr</code> files are left in place; delete them manually if you no
+           longer need them.</p>
+
+        <h2>Building instead</h2>
+        <p>Prefer to build from source? See <a href="getting-started.html">Development
+           setup</a> and <a href="building.html">Building from source</a>.</p>
+      </article>
+      <nav class="page-nav">
+        <a class="prev" href="how-it-works.html">&larr; How it works</a>
+        <span class="spacer"></span>
+        <a class="next" href="first-project.html">Your first project &rarr;</a>
+      </nav>
+    </main>
+  </div>
+  <footer class="sitefoot">
+    <p>LiteSkill VR guide · <a href="../index.html">home</a> · <a href="https://github.com/liteskill-io/liteskill-vr">source</a></p>
+  </footer>
+</body>
+</html>

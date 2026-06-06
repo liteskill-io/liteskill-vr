@@ -106,7 +106,7 @@ Freeform markdown notes attached to an item.
 ```typescript
 interface Note {
   id: string;
-  item_id: string;
+  item_id?: string; // optional — a note may be project-level (not tied to an item)
   title: string;
   content: string; // markdown
   author: string; // set automatically from connection identity
@@ -129,6 +129,7 @@ interface ItemOfInterest {
   description: string; // markdown
   location?: string; // freeform: address, line number, offset, symbol name
   severity?: "critical" | "high" | "medium" | "low" | "info";
+  status: string; // workflow state, defaults to "draft"
   author: string; // set automatically from connection identity
   author_type: "human" | "agent";
   tags: string[]; // must reference registered Tag names
@@ -178,15 +179,15 @@ All entities support deletion:
 
 ## Duplicate Detection
 
-When creating an item of interest, the system checks for existing entries on the same item with a similar title or matching location. If a potential duplicate is found, the response includes a `duplicate_warning` field with the ID and title of the existing entry. The create still succeeds — the agent or user decides whether to proceed.
+When creating an item of interest, the system checks for an existing entry on the same item with a **case-insensitive, whitespace-trimmed title match** or an **exact location match**. If a potential duplicate is found, the response includes a `duplicate_warning` field with the ID and title of the existing entry. The create still succeeds — the agent or user decides whether to proceed.
 
 ## Search & Filter
 
 Two query modes:
 
-**`search`** — Full-text search via SQLite FTS5. Requires a text query. Returns matches with highlighted snippets and parent context. Optional filters narrow results: `entity_type`, `tags`, `severity`, `connection_type`, `author_type`.
+**`search`** — Full-text search via SQLite FTS5 across items, notes, items of interest, and connections. Requires a text query; optional filters narrow results: `entity_type`, `tags`, `severity`, `connection_type`, `author_type`. A filter that can't apply to an entity kind (e.g. `severity` on items) drops that kind from the results. Returns matches with highlighted snippets.
 
-**`filter`** — Structured query with no text search. Requires `entity_type`. Returns all entities matching the filter params: `tags`, `severity`, `connection_type`, `author_type`, `item_id`, `analysis_status`. Use for queries like "all critical IOIs" or "all connections of type calls."
+**`filter`** — Structured query with no text search. Requires `entity_type`; the remaining filters apply per type — items: `item_type`, `analysis_status`, `tags`; items of interest: `item_id`, `severity`, `tags`, `author_type`; notes: `item_id`, `tags`, `author_type`; connections: `connection_type`, `author_type`. Use for queries like "all critical IOIs" or "all connections of type calls."
 
 ## Batch Semantics
 
@@ -194,4 +195,4 @@ All `_batch` create operations are transactional. If any entry fails validation 
 
 ## Storage
 
-Each project is a single `.lsvr` file (SQLite with custom extension). Projects can be backed up, shared, or archived by copying the file. The app opens/creates project files via a standard file dialog.
+Each project is a single `.lsvr` file (SQLite, WAL mode, foreign keys on). Projects can be backed up, shared, or archived by copying the file. (Today the desktop app opens/creates `project.lsvr` in its working directory; an open/new file dialog is planned — see [file-formats.md](file-formats.md).)

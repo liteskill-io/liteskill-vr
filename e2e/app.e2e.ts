@@ -78,6 +78,10 @@ interface ItemResult {
   name: string;
 }
 
+// Item id by name, populated by seedDemoProject so later seeders (explanations)
+// can scope their content to real items.
+const seededItems: Record<string, string> = {};
+
 async function seedDemoProject(): Promise<void> {
   const items = await tool<ItemResult[]>("item_create_batch", {
     items: [
@@ -116,10 +120,9 @@ async function seedDemoProject(): Promise<void> {
       { name: "libjson.so", item_type: "shared_object" },
     ],
   });
-  const byName: Record<string, string> = {};
-  for (const it of items) byName[it.name] = it.id;
+  for (const it of items) seededItems[it.name] = it.id;
   const id = (n: string): string => {
-    const v = byName[n];
+    const v = seededItems[n];
     if (!v) throw new Error(`seed: missing item '${n}'`);
     return v;
   };
@@ -345,6 +348,167 @@ async function seedDemoProject(): Promise<void> {
   }
 }
 
+// Seed the typed-content explanations that the new features render: a state
+// machine (states + transitions → on-the-fly diagram), a packet format
+// (structured fields → byte-layout table), and a protocol with a sanitized
+// HTML diagram. States/transitions/fields/diagram_html are all accepted inline
+// by explanation_upsert.
+async function seedExplanations(): Promise<void> {
+  const httpd = seededItems["httpd"];
+  const scope = httpd ? [httpd] : [];
+
+  // State machine — drives the custom (non-Mermaid) on-the-fly diagram.
+  await tool("explanation_upsert", {
+    stable_key: "explanation.auth_flow",
+    title: "Authentication flow",
+    explanation_type: "state_machine",
+    summary:
+      "Client sends HELLO; server returns a nonce; client returns a signed nonce; on valid signature the session moves to AUTHENTICATED and privileged commands are accepted.",
+    confidence: "medium",
+    scope_item_ids: scope,
+    states: [
+      {
+        stable_key: "UNAUTH",
+        name: "UNAUTHENTICATED",
+        description: "No session key; only HELLO is accepted.",
+        is_initial: true,
+      },
+      {
+        stable_key: "CHALLENGE",
+        name: "CHALLENGE_SENT",
+        description:
+          "Server has issued a nonce and is awaiting a signed response.",
+      },
+      {
+        stable_key: "AUTHED",
+        name: "AUTHENTICATED",
+        description: "Privileged commands are accepted.",
+        is_terminal: true,
+      },
+    ],
+    transitions: [
+      {
+        stable_key: "t.hello",
+        from_state: "UNAUTH",
+        to_state: "CHALLENGE",
+        event: "HELLO",
+        action: "issue nonce",
+      },
+      {
+        stable_key: "t.signed",
+        from_state: "CHALLENGE",
+        to_state: "AUTHED",
+        event: "SIGNED_NONCE",
+        guard: "signature valid",
+        action: "derive session key",
+      },
+      {
+        stable_key: "t.bad",
+        from_state: "CHALLENGE",
+        to_state: "UNAUTH",
+        event: "SIGNED_NONCE",
+        guard: "signature invalid",
+      },
+    ],
+    claims: [
+      {
+        stable_key: "claim.rsa",
+        text: "Signature verification uses RSA-2048 against a baked-in public key.",
+        claim_type: "behavior",
+        status: "supported",
+        confidence: "high",
+      },
+    ],
+    open_questions: [
+      {
+        stable_key: "q.bound",
+        question: "Is LoginRequest.length bounded before the payload copy?",
+        priority: "high",
+      },
+    ],
+  });
+
+  // Packet format — structured fields → dedicated byte-layout renderer.
+  await tool("explanation_upsert", {
+    stable_key: "explanation.packet_login",
+    title: "LoginRequest packet format",
+    explanation_type: "packet_format",
+    summary:
+      "magic(u32)=0x4c534b4c, type(u8)=3, length(u16, payload bytes), payload(bytes). length and payload are attacker-controlled.",
+    confidence: "medium",
+    scope_item_ids: scope,
+    fields: [
+      {
+        stable_key: "magic",
+        name: "magic",
+        field_type: "u32",
+        offset: 0,
+        size: 4,
+        description: "Must equal 0x4c534b4c",
+      },
+      {
+        stable_key: "type",
+        name: "type",
+        field_type: "u8",
+        offset: 4,
+        size: 1,
+        description: "3 = LOGIN",
+      },
+      {
+        stable_key: "length",
+        name: "length",
+        field_type: "u16",
+        offset: 5,
+        size: 2,
+        description: "Attacker-controlled payload length",
+      },
+      {
+        stable_key: "payload",
+        name: "payload",
+        field_type: "bytes",
+        offset: 7,
+        description: "Copied into a 256-byte stack buffer",
+      },
+    ],
+    claims: [
+      {
+        stable_key: "claim.len_attacker",
+        text: "length is used directly as the memcpy size in parse_login().",
+        claim_type: "security_relevant",
+        status: "supported",
+        confidence: "high",
+      },
+    ],
+  });
+
+  // Protocol — agent-authored HTML diagram, sanitized server-side on write.
+  await tool("explanation_upsert", {
+    stable_key: "explanation.protocol",
+    title: "Wire protocol overview",
+    explanation_type: "protocol",
+    summary:
+      "Length-prefixed binary protocol: 4-byte magic, 1-byte type, 2-byte length, payload. Types: HELLO(1), LOGIN(3), CMD(4).",
+    confidence: "medium",
+    scope_item_ids: scope,
+    diagram_html:
+      "<table><thead><tr><th>Type</th><th>Name</th><th>Direction</th><th>Payload</th></tr></thead><tbody>" +
+      "<tr><td>1</td><td>HELLO</td><td>client → server</td><td>none</td></tr>" +
+      "<tr><td>2</td><td>NONCE</td><td>server → client</td><td>16-byte nonce</td></tr>" +
+      "<tr><td>3</td><td>LOGIN</td><td>client → server</td><td>signed nonce + creds</td></tr>" +
+      "<tr><td>4</td><td>CMD</td><td>client → server</td><td>command (post-auth)</td></tr>" +
+      "</tbody></table>",
+    claims: [
+      {
+        stable_key: "claim.framing",
+        text: "Messages are framed by the 2-byte length field; there is no overall packet checksum.",
+        claim_type: "behavior",
+        status: "supported",
+        confidence: "medium",
+      },
+    ],
+  });
+}
+
 // --- Test setup ------------------------------------------------------------
 
 function screenshotName(title: string): string {
@@ -457,6 +621,86 @@ describe("LiteSkill VR", () => {
       await browser.pause(500);
       await expect(browser.$("span*=7 items")).toBeDisplayed();
       await expect(browser.$("span*=7 connections")).toBeDisplayed();
+    });
+
+    describe("explanations knowledge layer", () => {
+      // WebKitGTK's WebDriver doesn't implement the native click endpoint, so
+      // every click is dispatched via script.
+      async function click(selector: string): Promise<void> {
+        const el = await browser.$(selector);
+        await el.waitForExist({ timeout: 5000 });
+        await browser.execute((node: HTMLElement) => {
+          node.click();
+        }, el);
+        await browser.pause(300);
+      }
+
+      async function openSection(): Promise<void> {
+        await click("button*=Explanations");
+        await browser.waitUntil(
+          async () => {
+            const el = await browser.$("button*=Authentication flow");
+            return el.isExisting();
+          },
+          { timeout: 10_000, timeoutMsg: "explanations list never populated" },
+        );
+      }
+
+      before(async () => {
+        await seedExplanations();
+        // Wait for db-changed → snapshot refetch before navigating.
+        await browser.pause(600);
+        await openSection();
+      });
+
+      it("lists explanations in the knowledge layer", async () => {
+        await expect(browser.$("h1*=Explanations")).toBeDisplayed();
+        await expect(browser.$("button*=Authentication flow")).toBeDisplayed();
+        await expect(
+          browser.$("button*=LoginRequest packet format"),
+        ).toBeDisplayed();
+        await expect(
+          browser.$("button*=Wire protocol overview"),
+        ).toBeDisplayed();
+      });
+
+      it("renders a state machine with an on-the-fly diagram", async () => {
+        await click("button*=Authentication flow");
+        await expect(browser.$("h1*=Authentication flow")).toBeDisplayed();
+        // SectionHeader: "State machine (3 states, 3 transitions)".
+        await expect(browser.$("h2*=State machine")).toBeDisplayed();
+        // States and a transition label rendered from the editable rows.
+        // (Tag-qualify text selectors — bare `*=` only matches <a> tags.)
+        await expect(browser.$("span*=UNAUTHENTICATED")).toBeDisplayed();
+        await expect(browser.$("span*=AUTHENTICATED")).toBeDisplayed();
+        await expect(browser.$("span*=SIGNED_NONCE")).toBeDisplayed();
+        await browser.pause(300);
+      });
+
+      it("renders a packet format as a structured field table", async () => {
+        await click("button*=All explanations");
+        await click("button*=LoginRequest packet format");
+        await expect(
+          browser.$("h1*=LoginRequest packet format"),
+        ).toBeDisplayed();
+        // The dedicated byte-layout renderer: header + field rows.
+        await expect(browser.$("h2*=Structure")).toBeDisplayed();
+        await expect(browser.$("th*=Bytes")).toBeDisplayed();
+        await expect(browser.$("td*=magic")).toBeDisplayed();
+        await expect(browser.$("td*=payload")).toBeDisplayed();
+        await browser.pause(300);
+      });
+
+      it("renders a sanitized HTML diagram", async () => {
+        await click("button*=All explanations");
+        await click("button*=Wire protocol overview");
+        await expect(browser.$("h1*=Wire protocol overview")).toBeDisplayed();
+        await expect(browser.$("h2*=Diagram")).toBeDisplayed();
+        // The sanitized table is rendered (scripts stripped server-side). On the
+        // protocol detail the only <td> cells come from the diagram table.
+        await expect(browser.$("td*=HELLO")).toBeDisplayed();
+        await browser.pause(300);
+      });
     });
   });
 });

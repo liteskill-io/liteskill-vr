@@ -100,6 +100,7 @@ impl Database {
         let table = match entity_type {
             "item" => "items",
             "item_of_interest" => "items_of_interest",
+            "explanation" => "explanations",
             _ => {
                 return Err(DbError::InvalidReference {
                     entity: entity_type.to_string(),

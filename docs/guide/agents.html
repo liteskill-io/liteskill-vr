@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Working with AI agents — LiteSkill VR</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/logo.svg">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">
+      <img src="../assets/logo.svg" alt="" class="brand-mark">
+      <span class="brand-name">LITESKILL&nbsp;VR</span>
+      <span class="brand-tag">// guide</span>
+    </a>
+    <nav class="top-nav">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Guide</a>
+      <a href="https://github.com/liteskill-io/liteskill-vr">Source</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <p class="sidebar-section">Guide</p>
+      <ul>
+        <li><a href="index.html">Contents</a></li>
+      </ul>
+      <p class="sidebar-section">Specification</p>
+      <ul>
+        <li><a href="introduction.html">Introduction</a></li>
+      </ul>
+      <p class="sidebar-section">Concept</p>
+      <ul>
+        <li><a href="how-it-works.html">How it works</a></li>
+      </ul>
+      <p class="sidebar-section">User Guide</p>
+      <ul>
+        <li><a href="installation.html">Installation</a></li>
+        <li><a href="first-project.html">Your first project</a></li>
+        <li><a href="interface.html">The interface</a></li>
+        <li><a href="agents.html" aria-current="page">Working with AI agents</a></li>
+        <li><a href="headless-mcp.html">Headless MCP server</a></li>
+      </ul>
+      <p class="sidebar-section">Development</p>
+      <ul>
+        <li><a href="getting-started.html">Development setup</a></li>
+        <li><a href="building.html">Building from source</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="data-model.html">Data model</a></li>
+        <li><a href="mcp-tools.html">MCP tools</a></li>
+      </ul>
+      <p class="sidebar-section">Reference</p>
+      <ul>
+        <li><a href="file-formats.html">File formats</a></li>
+        <li><a href="security.html">Security</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+      <article>
+        <h1>Working With AI Agents</h1>
+        <p>LiteSkill VR's MCP server is a <strong>read-write</strong> interface: agents
+           don't just dump findings, they query existing research, review what past
+           sessions discovered, build on prior analysis, and avoid duplicating work.
+           This page covers connecting an agent and running a productive session. For the
+           full tool list, see <a href="mcp-tools.html">MCP tools</a>.</p>
+
+        <h2>Connect</h2>
+        <p>The embedded server runs over HTTP on <code>127.0.0.1</code> and starts when
+           you open a project; the port shows in the status bar. Configure Claude Code:</p>
+        <pre data-lang="json"><code>{
+          "mcpServers": {
+            "liteskill": {
+              "url": "http://127.0.0.1:27182"
+            }
+          }
+        }</code></pre>
+        <p>Running headless or want the agent to own the process lifecycle? Use the
+           <a href="headless-mcp.html">stdio transport</a> instead.</p>
+
+        <h2>Author identity</h2>
+        <p>Every write is attributed automatically — you never pass an author per call.
+           Over HTTP, the agent identifies itself with a header on each request:</p>
+        <pre data-lang="text"><code>X-LiteSkill-Author: claude-code</code></pre>
+        <p>Everything that connection creates is stamped with that author and
+           <code>author_type: "agent"</code>. With no header, writes default to
+           <code>anonymous-agent</code>; over stdio they are attributed to
+           <code>stdio-agent</code>. UI edits you make are stamped <code>human</code>
+           with your OS username. Consistent author identity is what makes
+           <code>changes_since</code> and <code>bulk_delete</code> precise — so give each
+           agent a distinct, stable author name.</p>
+
+        <h2>Pair it with an analysis backend</h2>
+        <p>LiteSkill VR documents; it does not analyze. Connect an analysis MCP server in
+           the same agent so it can do the work and record it in one loop — for example
+           <code>pyghidra-mcp</code> for Ghidra decompilation and xrefs. The agent reads
+           from Ghidra and writes findings into LiteSkill VR.</p>
+
+        <h2>A productive session</h2>
+        <ol>
+        <li><strong>Orient</strong> — <code>project_summary</code>, <code>tag_list</code>,
+            <code>connection_type_list</code> establish current state and the registered
+            vocabulary.</li>
+        <li><strong>Catch up</strong> — on a return visit, <code>changes_since</code>
+            shows everything new since last time.</li>
+        <li><strong>Review a target</strong> — <code>item_get</code> returns everything
+            known about an item before the agent adds more.</li>
+        <li><strong>Document in batches</strong> — <code>ioi_create_batch</code> and
+            <code>note_create_batch</code> write atomically; if one entry is invalid the
+            whole batch is rejected with a specific, fixable error.</li>
+        <li><strong>Connect</strong> — <code>connection_create_batch</code> records how
+            items and findings relate.</li>
+        <li><strong>Query</strong> — <code>search</code> for full-text, <code>filter</code>
+            for structured (e.g. all <code>critical</code> findings).</li>
+        <li><strong>Recover</strong> — <code>bulk_delete</code> undoes a bad session in
+            one call (it requires at least one filter, so it can't wipe everything by
+            accident).</li>
+        </ol>
+
+        <h2>Why it stays clean</h2>
+        <ul>
+        <li><strong>Registered vocabularies</strong> — tags and connection types must
+            exist before use, so you never end up with <code>buffer-overflow</code> vs
+            <code>memory-corruption</code> vs <code>overflow</code> across sessions.</li>
+        <li><strong>Duplicate detection</strong> — <code>ioi_create</code> returns a
+            <code>duplicate_warning</code> when a similar finding already exists on the
+            same item (the create still succeeds; the agent decides).</li>
+        <li><strong>Read before write</strong> — the orient/catch-up steps mean agents
+            build on prior work instead of re-discovering it.</li>
+        </ul>
+
+        <h2>Tips</h2>
+        <ul>
+        <li>Keep LiteSkill VR open while the agent works — findings stream into the UI
+            in real time over IPC.</li>
+        <li>Multiple agents can connect at once (e.g. Claude Code and Codex); distinct
+            author names keep their contributions separable.</li>
+        <li>Register project-specific tags and connection types up front so agents have
+            the vocabulary they need.</li>
+        </ul>
+      </article>
+      <nav class="page-nav">
+        <a class="prev" href="interface.html">&larr; The interface</a>
+        <span class="spacer"></span>
+        <a class="next" href="headless-mcp.html">Headless MCP server &rarr;</a>
+      </nav>
+    </main>
+  </div>
+  <footer class="sitefoot">
+    <p>LiteSkill VR guide · <a href="../index.html">home</a> · <a href="https://github.com/liteskill-io/liteskill-vr">source</a></p>
+  </footer>
+</body>
+</html>

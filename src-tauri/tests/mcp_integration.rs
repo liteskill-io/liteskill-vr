@@ -790,3 +790,253 @@ async fn full_agent_session() {
     assert_eq!(summary["severity_summary"]["critical"], 2);
     assert_eq!(summary["severity_summary"]["high"], 1);
 }
+
+#[tokio::test]
+async fn explanation_lifecycle() {
+    let s = TestServer::start().await;
+
+    let item = s
+        .tool("item_create", json!({"name": "httpd", "item_type": "elf"}))
+        .await;
+    let item_id = item["id"].as_str().unwrap().to_string();
+
+    // Create an explanation with a claim + open question, scoped to the item.
+    let res = s
+        .tool(
+            "explanation_upsert",
+            json!({
+                "stable_key": "explanation.auth",
+                "title": "Auth flow",
+                "explanation_type": "state_machine",
+                "summary": "short tldr",
+                "scope_item_ids": [item_id],
+                "claims": [{"stable_key": "claim.rsa", "text": "Auth uses RSA"}],
+                "open_questions": [{"stable_key": "q.bound", "question": "Length bounded?", "priority": "high"}]
+            }),
+        )
+        .await;
+    let expl_id = res["explanation"]["id"].as_str().unwrap().to_string();
+    let claim_id = res["explanation"]["claims"][0]["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    // The unbacked-claim guardrail warning is present.
+    assert!(res["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|w| w.as_str().unwrap().contains("no linked evidence")));
+
+    // Attach external-locator evidence to the claim.
+    s.tool(
+        "evidence_link",
+        json!({
+            "target_type": "claim",
+            "target_id": claim_id,
+            "external_locator": "FUN_00401000+0x14",
+            "external_kind": "ghidra",
+            "evidence_type": "decompilation",
+            "strength": "strong"
+        }),
+    )
+    .await;
+
+    // Re-run with the same stable_keys: idempotent (same id), claim updated, and
+    // the unbacked warning now cleared.
+    let res2 = s
+        .tool(
+            "explanation_upsert",
+            json!({
+                "stable_key": "explanation.auth",
+                "title": "Authentication flow",
+                "claims": [{"stable_key": "claim.rsa", "text": "Auth uses RSA-2048"}]
+            }),
+        )
+        .await;
+    assert_eq!(res2["explanation"]["id"].as_str().unwrap(), expl_id);
+    assert!(!res2["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|w| w.as_str().unwrap().contains("no linked evidence")));
+
+    // explanation_get reflects the update, evidence, and scope.
+    let got = s.tool("explanation_get", json!({"id": expl_id})).await;
+    assert_eq!(got["title"], "Authentication flow");
+    assert_eq!(got["claims"][0]["text"], "Auth uses RSA-2048");
+    assert_eq!(got["evidence"].as_array().unwrap().len(), 1);
+    assert_eq!(got["scope_item_ids"][0].as_str().unwrap(), item_id);
+
+    // Discovery surfaces (list, project_summary, filter).
+    assert_eq!(
+        s.tool("explanation_list", json!({}))
+            .await
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    let summary = s.tool("project_summary", json!({})).await;
+    assert_eq!(summary["explanations"].as_array().unwrap().len(), 1);
+    assert_eq!(summary["open_questions"].as_array().unwrap().len(), 1);
+    let qs = s
+        .tool(
+            "filter",
+            json!({"entity_type": "open_question", "priority": "high"}),
+        )
+        .await;
+    assert_eq!(qs.as_array().unwrap().len(), 1);
+}
+
+// Read-only discovery tools that aren't covered by the CRUD tests above:
+// project_get, changes_since, connection_list, connection_list_all.
+#[tokio::test]
+async fn read_only_tools() {
+    let s = TestServer::start().await;
+
+    // project_get returns the project envelope.
+    let project = s.tool("project_get", json!({})).await;
+    assert!(project["id"].as_str().is_some());
+    assert!(project["name"].as_str().is_some());
+
+    // Build a small graph: two linked items.
+    let a = s
+        .tool("item_create", json!({"name": "httpd", "item_type": "elf"}))
+        .await;
+    let b = s
+        .tool(
+            "item_create",
+            json!({"name": "libssl", "item_type": "shared_object"}),
+        )
+        .await;
+    let a_id = a["id"].as_str().unwrap().to_string();
+    let b_id = b["id"].as_str().unwrap().to_string();
+    s.tool(
+        "connection_create",
+        json!({
+            "source_id": a_id,
+            "source_type": "item",
+            "target_id": b_id,
+            "target_type": "item",
+            "connection_type": "links"
+        }),
+    )
+    .await;
+
+    // connection_list (entity-scoped) and connection_list_all both see it.
+    let scoped = s.tool("connection_list", json!({"entity_id": a_id})).await;
+    assert_eq!(scoped.as_array().unwrap().len(), 1);
+    let all = s.tool("connection_list_all", json!({})).await;
+    assert_eq!(all.as_array().unwrap().len(), 1);
+
+    // changes_since with an epoch floor returns the items just created; with a
+    // far-future floor it returns nothing.
+    let recent = s
+        .tool("changes_since", json!({"since": "1970-01-01"}))
+        .await;
+    assert_eq!(recent["items"].as_array().unwrap().len(), 2);
+    let none = s
+        .tool("changes_since", json!({"since": "2999-01-01"}))
+        .await;
+    assert!(none["items"].as_array().unwrap().is_empty());
+}
+
+// Structured typed content (packet fields + inline state machine) over the real
+// HTTP transport — exercises the full serialize/deserialize path the unit tests
+// (which call dispatch directly) don't.
+#[tokio::test]
+async fn structured_content_over_http() {
+    let s = TestServer::start().await;
+
+    // A packet_format with inline fields, plus one granular field_create.
+    let pkt = s
+        .tool(
+            "explanation_upsert",
+            json!({
+                "stable_key": "explanation.packet",
+                "title": "LoginRequest",
+                "explanation_type": "packet_format",
+                "fields": [
+                    {"stable_key": "f.magic", "name": "magic", "field_type": "u32", "offset": 0, "size": 4},
+                    {"stable_key": "f.len", "name": "length", "field_type": "u16", "offset": 4, "size": 2}
+                ]
+            }),
+        )
+        .await;
+    let pkt_id = pkt["explanation"]["id"].as_str().unwrap().to_string();
+
+    s.tool(
+        "field_create",
+        json!({"explanation_id": pkt_id, "name": "payload", "field_type": "bytes"}),
+    )
+    .await;
+
+    let got = s.tool("explanation_get", json!({"id": pkt_id})).await;
+    let fields = got["fields"].as_array().unwrap();
+    assert_eq!(fields.len(), 3);
+    // Offset-ordered; the unset-offset field sorts last.
+    assert_eq!(fields[0]["name"], "magic");
+    assert_eq!(fields[0]["offset"], 0);
+    assert_eq!(fields[2]["name"], "payload");
+    assert!(fields[2]["offset"].is_null());
+
+    // Inline states + transitions on a state_machine upsert (now advertised in
+    // the schema) and the generated text diagram on explanation_get.
+    let sm = s
+        .tool(
+            "explanation_upsert",
+            json!({
+                "stable_key": "explanation.sm",
+                "title": "Auth",
+                "explanation_type": "state_machine",
+                "states": [
+                    {"stable_key": "A", "name": "UNAUTH", "is_initial": true},
+                    {"stable_key": "B", "name": "AUTHED", "is_terminal": true}
+                ],
+                "transitions": [
+                    {"stable_key": "t1", "from_state": "A", "to_state": "B", "event": "LOGIN", "guard": "ok"}
+                ]
+            }),
+        )
+        .await;
+    let sm_id = sm["explanation"]["id"].as_str().unwrap().to_string();
+    let got = s.tool("explanation_get", json!({"id": sm_id})).await;
+    assert_eq!(got["states"].as_array().unwrap().len(), 2);
+    assert_eq!(got["transitions"].as_array().unwrap().len(), 1);
+    assert!(got["diagram_text"]
+        .as_str()
+        .unwrap()
+        .contains("UNAUTH --LOGIN [ok]--> AUTHED"));
+
+    // A transition referencing an unknown state stable_key is rejected.
+    let err = s
+        .tool_err(
+            "transition_create",
+            json!({"explanation_id": sm_id, "from_state": "A", "to_state": "ghost"}),
+        )
+        .await;
+    assert!(!err["message"].as_str().unwrap().is_empty());
+}
+
+// HTML diagrams are sanitized server-side before storage — the JS-injection
+// constraint, verified end-to-end over HTTP.
+#[tokio::test]
+async fn diagram_html_is_sanitized_over_http() {
+    let s = TestServer::start().await;
+    let res = s
+        .tool(
+            "explanation_upsert",
+            json!({
+                "stable_key": "explanation.proto",
+                "title": "Wire protocol",
+                "explanation_type": "protocol",
+                "diagram_html": "<table><tr><td>ok</td></tr></table><script>alert(1)</script><a href=\"javascript:evil()\" onclick=\"x()\">bad</a>"
+            }),
+        )
+        .await;
+    let html = res["explanation"]["diagram_html"].as_str().unwrap();
+    assert!(html.contains("<table>"), "safe markup is kept");
+    assert!(!html.contains("<script"), "scripts are stripped");
+    assert!(!html.contains("onclick"), "event handlers are stripped");
+    assert!(!html.contains("javascript:"), "unsafe URLs are stripped");
+}

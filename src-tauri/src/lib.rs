@@ -1,4 +1,5 @@
 pub mod db;
+pub mod fixture;
 pub mod mcp;
 
 pub const MCP_PORT: u16 = 27182;
@@ -26,7 +27,10 @@ mod gui {
 
         tauri::Builder::default()
             .plugin(tauri_plugin_opener::init())
-            .invoke_handler(tauri::generate_handler![commands::project_snapshot])
+            .invoke_handler(tauri::generate_handler![
+                commands::project_snapshot,
+                commands::mcp_call
+            ])
             .setup(|app| {
                 let db_path = std::env::current_dir()
                     .unwrap_or_default()

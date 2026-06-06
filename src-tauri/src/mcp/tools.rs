@@ -29,15 +29,311 @@ pub fn list_all() -> Vec<Value> {
     tools.extend(note_tools());
     tools.extend(ioi_tools());
     tools.extend(connection_tools());
+    tools.extend(explanation_tools());
     tools.extend(search_tools());
     tools.extend(bulk_tools());
     tools
 }
 
+#[allow(clippy::too_many_lines)]
+fn explanation_tools() -> Vec<Value> {
+    let claim_item = json!({
+        "type": "object",
+        "properties": {
+            "stable_key": {"type": "string", "description": "Stable id for idempotent re-runs, e.g. claim.auth.uses_rsa"},
+            "text": {"type": "string"},
+            "claim_type": {"type": "string", "enum": ["behavior", "invariant", "constraint", "assumption", "hypothesis", "security_relevant", "finding_context", "unknown"]},
+            "status": {"type": "string", "enum": ["hypothesis", "supported", "refuted"]},
+            "confidence": {"type": "string", "enum": ["low", "medium", "high"]}
+        },
+        "required": ["stable_key", "text"]
+    });
+    let question_item = json!({
+        "type": "object",
+        "properties": {
+            "stable_key": {"type": "string"},
+            "question": {"type": "string"},
+            "priority": {"type": "string", "enum": ["low", "medium", "high"]},
+            "status": {"type": "string", "enum": ["open", "answered", "blocked", "superseded"]}
+        },
+        "required": ["stable_key", "question"]
+    });
+    let field_item = json!({
+        "type": "object",
+        "properties": {
+            "stable_key": {"type": "string"},
+            "name": {"type": "string"},
+            "field_type": {"type": "string", "description": "e.g. u8, u16, u32, bytes, string"},
+            "offset": {"type": "integer"},
+            "size": {"type": "integer"},
+            "description": {"type": "string"}
+        },
+        "required": ["stable_key", "name"]
+    });
+    let state_item = json!({
+        "type": "object",
+        "properties": {
+            "stable_key": {"type": "string"},
+            "name": {"type": "string"},
+            "description": {"type": "string"},
+            "is_initial": {"type": "boolean"},
+            "is_terminal": {"type": "boolean"}
+        },
+        "required": ["stable_key", "name"]
+    });
+    let transition_item = json!({
+        "type": "object",
+        "properties": {
+            "stable_key": {"type": "string"},
+            "from_state": {"type": "string", "description": "source state stable_key"},
+            "to_state": {"type": "string", "description": "target state stable_key"},
+            "event": {"type": "string"},
+            "guard": {"type": "string"},
+            "action": {"type": "string"},
+            "description": {"type": "string"}
+        },
+        "required": ["stable_key", "from_state", "to_state"]
+    });
+    vec![
+        tool(
+            "explanation_upsert",
+            "Create or update an Explanation (how a system works) by stable_key, with its claims and open questions, all-or-nothing. Keep `summary` a short TL;DR; put the substance in claims (each evidence-backed via evidence_link) and record unknowns as open_questions. Re-running with the same stable_keys updates in place. Returns the explanation plus advisory warnings.",
+            &json!({
+                "stable_key": {"type": "string", "description": "Stable id, unique per project, e.g. explanation.auth_flow"},
+                "title": {"type": "string"},
+                "explanation_type": {"type": "string", "enum": ["architecture", "protocol", "packet_format", "state_machine", "control_flow", "data_flow", "memory_layout", "object_lifecycle", "api_surface", "threat_model", "custom"]},
+                "summary": {"type": "string", "description": "Short TL;DR — NOT a wall of prose; use claims for substance"},
+                "status": {"type": "string", "enum": ["draft", "reviewed"]},
+                "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+                "tags": {"type": "array", "items": {"type": "string"}, "description": "Registered tag names"},
+                "scope_item_ids": {"type": "array", "items": {"type": "string"}, "description": "Item ids this explanation covers (linked via 'explains' connections)"},
+                "diagram_html": {"type": "string", "description": "Optional HTML diagram (e.g. a table for a packet/struct/protocol layout). Sanitized server-side: scripts, event handlers, and unsafe URLs are stripped — only safe markup is stored."},
+                "claims": {"type": "array", "items": claim_item},
+                "open_questions": {"type": "array", "items": question_item},
+                "states": {"type": "array", "items": state_item, "description": "State-machine states (also creatable one at a time via state_create)"},
+                "transitions": {"type": "array", "items": transition_item, "description": "State-machine transitions; from_state/to_state reference state stable_keys"},
+                "fields": {"type": "array", "items": field_item, "description": "Packet/struct fields (type, offset, size)"}
+            }),
+            &["stable_key", "title"],
+        ),
+        tool(
+            "explanation_get",
+            "Get one explanation with its claims, open questions, evidence, and scope.",
+            &json!({"id": {"type": "string"}}),
+            &["id"],
+        ),
+        tool(
+            "explanation_list",
+            "List explanations with child counts. Optional filters by type and status.",
+            &json!({
+                "explanation_type": {"type": "string"},
+                "status": {"type": "string", "enum": ["draft", "reviewed"]}
+            }),
+            &[],
+        ),
+        tool(
+            "evidence_link",
+            "Attach evidence to an explanation, a claim, or a finding. Source is EITHER an existing entity (source_entity_type + source_entity_id) OR a free-text external_locator (+external_kind) such as a Ghidra symbol, address, or pcap packet.",
+            &json!({
+                "target_type": {"type": "string", "enum": ["explanation", "claim", "finding"]},
+                "target_id": {"type": "string"},
+                "source_entity_type": {"type": "string", "enum": ["item", "item_of_interest", "note", "connection", "explanation"]},
+                "source_entity_id": {"type": "string"},
+                "external_locator": {"type": "string", "description": "e.g. FUN_00401000+0x14, pcap:42"},
+                "external_kind": {"type": "string", "enum": ["ghidra", "address", "pcap", "decompilation", "disassembly", "log", "test_case", "other"]},
+                "evidence_type": {"type": "string", "enum": ["static_analysis", "dynamic_trace", "decompilation", "disassembly", "packet_capture", "test_case", "runtime_log", "human_observation", "agent_inference"]},
+                "strength": {"type": "string", "enum": ["weak", "moderate", "strong"]},
+                "excerpt": {"type": "string"}
+            }),
+            &["target_type", "target_id"],
+        ),
+        tool(
+            "explanation_update",
+            "Update an explanation's envelope fields (not its children).",
+            &json!({
+                "id": {"type": "string"},
+                "title": {"type": "string"},
+                "explanation_type": {"type": "string"},
+                "summary": {"type": "string"},
+                "status": {"type": "string", "enum": ["draft", "reviewed"]},
+                "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+                "diagram_html": {"type": "string", "description": "HTML diagram; sanitized server-side (scripts/JS stripped)."}
+            }),
+            &["id"],
+        ),
+        tool(
+            "explanation_delete",
+            "Delete an explanation (cascades its claims, questions, evidence, and scope links).",
+            &json!({"id": {"type": "string"}}),
+            &["id"],
+        ),
+        tool(
+            "claim_create",
+            "Add a single claim to an explanation.",
+            &json!({
+                "explanation_id": {"type": "string"},
+                "text": {"type": "string"},
+                "claim_type": {"type": "string"},
+                "status": {"type": "string", "enum": ["hypothesis", "supported", "refuted"]},
+                "confidence": {"type": "string", "enum": ["low", "medium", "high"]}
+            }),
+            &["explanation_id", "text"],
+        ),
+        tool(
+            "claim_update",
+            "Update a claim's fields.",
+            &json!({
+                "id": {"type": "string"},
+                "text": {"type": "string"},
+                "claim_type": {"type": "string"},
+                "status": {"type": "string", "enum": ["hypothesis", "supported", "refuted"]},
+                "confidence": {"type": "string", "enum": ["low", "medium", "high"]}
+            }),
+            &["id"],
+        ),
+        tool(
+            "claim_delete",
+            "Delete a claim.",
+            &json!({"id": {"type": "string"}}),
+            &["id"],
+        ),
+        tool(
+            "open_question_create",
+            "Add a single open question to an explanation.",
+            &json!({
+                "explanation_id": {"type": "string"},
+                "question": {"type": "string"},
+                "priority": {"type": "string", "enum": ["low", "medium", "high"]},
+                "status": {"type": "string", "enum": ["open", "answered", "blocked", "superseded"]}
+            }),
+            &["explanation_id", "question"],
+        ),
+        tool(
+            "open_question_update",
+            "Update an open question's fields.",
+            &json!({
+                "id": {"type": "string"},
+                "question": {"type": "string"},
+                "priority": {"type": "string", "enum": ["low", "medium", "high"]},
+                "status": {"type": "string", "enum": ["open", "answered", "blocked", "superseded"]}
+            }),
+            &["id"],
+        ),
+        tool(
+            "open_question_delete",
+            "Delete an open question.",
+            &json!({"id": {"type": "string"}}),
+            &["id"],
+        ),
+        tool(
+            "evidence_delete",
+            "Delete an evidence link.",
+            &json!({"id": {"type": "string"}}),
+            &["id"],
+        ),
+        tool(
+            "state_create",
+            "Add a state to a state_machine explanation.",
+            &json!({
+                "explanation_id": {"type": "string"},
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "is_initial": {"type": "boolean"},
+                "is_terminal": {"type": "boolean"}
+            }),
+            &["explanation_id", "name"],
+        ),
+        tool(
+            "state_update",
+            "Update a state.",
+            &json!({
+                "id": {"type": "string"},
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "is_initial": {"type": "boolean"},
+                "is_terminal": {"type": "boolean"}
+            }),
+            &["id"],
+        ),
+        tool(
+            "state_delete",
+            "Delete a state (and any transitions referencing it).",
+            &json!({"id": {"type": "string"}}),
+            &["id"],
+        ),
+        tool(
+            "transition_create",
+            "Add a transition between two states (referenced by their stable_key) of a state_machine explanation.",
+            &json!({
+                "explanation_id": {"type": "string"},
+                "from_state": {"type": "string", "description": "source state stable_key"},
+                "to_state": {"type": "string", "description": "target state stable_key"},
+                "event": {"type": "string"},
+                "guard": {"type": "string"},
+                "action": {"type": "string"},
+                "description": {"type": "string"}
+            }),
+            &["explanation_id", "from_state", "to_state"],
+        ),
+        tool(
+            "transition_update",
+            "Update a transition.",
+            &json!({
+                "id": {"type": "string"},
+                "from_state": {"type": "string"},
+                "to_state": {"type": "string"},
+                "event": {"type": "string"},
+                "guard": {"type": "string"},
+                "action": {"type": "string"},
+                "description": {"type": "string"}
+            }),
+            &["id"],
+        ),
+        tool(
+            "transition_delete",
+            "Delete a transition.",
+            &json!({"id": {"type": "string"}}),
+            &["id"],
+        ),
+        tool(
+            "field_create",
+            "Add a field to a packet_format / memory_layout (struct) explanation.",
+            &json!({
+                "explanation_id": {"type": "string"},
+                "name": {"type": "string"},
+                "field_type": {"type": "string", "description": "e.g. u8, u16, u32, bytes, string"},
+                "offset": {"type": "integer", "description": "byte offset"},
+                "size": {"type": "integer", "description": "byte size"},
+                "description": {"type": "string"}
+            }),
+            &["explanation_id", "name"],
+        ),
+        tool(
+            "field_update",
+            "Update a field.",
+            &json!({
+                "id": {"type": "string"},
+                "name": {"type": "string"},
+                "field_type": {"type": "string"},
+                "offset": {"type": "integer"},
+                "size": {"type": "integer"},
+                "description": {"type": "string"}
+            }),
+            &["id"],
+        ),
+        tool(
+            "field_delete",
+            "Delete a field.",
+            &json!({"id": {"type": "string"}}),
+            &["id"],
+        ),
+    ]
+}
+
 fn project_tools() -> Vec<Value> {
     vec![
         tool_no_params("project_get", "Get project metadata"),
-        tool_no_params("project_summary", "High-level overview: all items with status/counts, severity breakdown, registered tags, registered connection types"),
+        tool_no_params("project_summary", "High-level overview: all items with status/counts, severity breakdown, recent activity, registered tags, registered connection types"),
         tool("changes_since", "All entities created or updated after the given timestamp, grouped by type",
             &json!({"since": {"type": "string", "description": "ISO 8601 timestamp"}}),
             &["since"]),
@@ -308,10 +604,14 @@ fn search_tools() -> Vec<Value> {
     vec![
         tool(
             "search",
-            "Full-text search across all entities. Returns matches with snippets.",
+            "Full-text search across all entities. Returns matches with snippets. Optional filters narrow results; a filter that can't apply to an entity kind (e.g. severity on items) drops that kind from the results.",
             &json!({
                 "query": {"type": "string"},
-                "entity_type": {"type": "string", "enum": ["item", "note", "item_of_interest", "connection"]}
+                "entity_type": {"type": "string", "enum": ["item", "note", "item_of_interest", "connection"]},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "severity": {"type": "string", "enum": ["critical", "high", "medium", "low", "info"]},
+                "connection_type": {"type": "string"},
+                "author_type": {"type": "string", "enum": ["human", "agent"]}
             }),
             &["query"],
         ),

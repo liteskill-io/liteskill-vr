@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Architecture — LiteSkill VR</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/logo.svg">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">
+      <img src="../assets/logo.svg" alt="" class="brand-mark">
+      <span class="brand-name">LITESKILL&nbsp;VR</span>
+      <span class="brand-tag">// guide</span>
+    </a>
+    <nav class="top-nav">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Guide</a>
+      <a href="https://github.com/liteskill-io/liteskill-vr">Source</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <p class="sidebar-section">Guide</p>
+      <ul>
+        <li><a href="index.html">Contents</a></li>
+      </ul>
+      <p class="sidebar-section">Specification</p>
+      <ul>
+        <li><a href="introduction.html">Introduction</a></li>
+      </ul>
+      <p class="sidebar-section">Concept</p>
+      <ul>
+        <li><a href="how-it-works.html">How it works</a></li>
+      </ul>
+      <p class="sidebar-section">User Guide</p>
+      <ul>
+        <li><a href="installation.html">Installation</a></li>
+        <li><a href="first-project.html">Your first project</a></li>
+        <li><a href="interface.html">The interface</a></li>
+        <li><a href="agents.html">Working with AI agents</a></li>
+        <li><a href="headless-mcp.html">Headless MCP server</a></li>
+      </ul>
+      <p class="sidebar-section">Development</p>
+      <ul>
+        <li><a href="getting-started.html">Development setup</a></li>
+        <li><a href="building.html">Building from source</a></li>
+        <li><a href="architecture.html" aria-current="page">Architecture</a></li>
+        <li><a href="data-model.html">Data model</a></li>
+        <li><a href="mcp-tools.html">MCP tools</a></li>
+      </ul>
+      <p class="sidebar-section">Reference</p>
+      <ul>
+        <li><a href="file-formats.html">File formats</a></li>
+        <li><a href="security.html">Security</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+      <article>
+        <h1>Architecture</h1>
+        <p>LiteSkill VR is a Tauri v2 application: a React/TypeScript frontend over a
+           Rust backend that owns the SQLite project store and hosts the MCP server.</p>
+
+        <pre data-lang="text"><code>┌─────────────────────────────────────────────────┐
+        │               LiteSkill VR (Tauri)               │
+        │  ┌───────────────────────────────────────────┐  │
+        │  │           Frontend (React/TS)             │  │
+        │  │  Tabbed Views · Search · Connection Map   │  │
+        │  │  Item Browser · Notes · Tags              │  │
+        │  └─────────────────┬─────────────────────────┘  │
+        │                    │ IPC                         │
+        │  ┌─────────────────┴─────────────────────────┐  │
+        │  │           Rust Backend                    │  │
+        │  │  ┌─────────────┐    ┌─────────────────┐   │  │
+        │  │  │ Project     │    │ MCP Server      │   │  │
+        │  │  │ Store       │◄──►│ (localhost)     │   │  │
+        │  │  │ SQLite      │    │ items, notes,   │   │  │
+        │  │  │ (.lsvr)     │    │ ioi, conns…     │   │  │
+        │  │  └─────────────┘    └─────────────────┘   │  │
+        │  └───────────────────────────────────────────┘  │
+        └─────────────────────────────────────────────────┘
+               ▲                        ▲
+               │ UI interaction         │ MCP (streamable-HTTP on 127.0.0.1)
+           Researcher              Claude Code / Codex</code></pre>
+
+        <h2>Components</h2>
+        <h3>Frontend (TypeScript / React)</h3>
+        <blockquote><p><strong>Human/agent parity.</strong> The frontend is a full
+           read-<strong>write</strong> client — every mutating MCP tool has a human CRUD
+           affordance (<code>human ≥ agent</code>), enforced in CI. See
+           <a href="interface.html">The interface</a>.</p></blockquote>
+        <ul>
+        <li><strong>Dashboard</strong> — project overview: items, severity/triage breakdown, recent findings</li>
+        <li><strong>Tab bar</strong> — open items as tabs (open/close/switch); each tab is an item</li>
+        <li><strong>Item detail</strong> — an item's notes, items of interest, connections, with create/edit/delete</li>
+        <li><strong>Connection map</strong> — Cytoscape.js graph of items and connections; click a node to open it</li>
+        <li><strong>Sidebar</strong> — navigation (items / by severity / explanations / managers)</li>
+        <li><strong>Tag &amp; Connection-Type managers, Search/Filter view</strong> — parity with the vocab + search/filter tools</li>
+        <li><strong>Zustand store</strong> — client view state; holds the latest project snapshot</li>
+        </ul>
+
+        <h3>Rust backend</h3>
+        <ul>
+        <li><strong>Project store</strong> — CRUD + delete for all entities; SQLite (one
+            <code>.lsvr</code> file per project) with FTS5 for full-text search.</li>
+        <li><strong>MCP server</strong> — streamable-HTTP on <code>127.0.0.1</code> (the
+            <code>/mcp</code> endpoint; also a stdio transport in the headless binary),
+            started automatically when a project is opened.</li>
+        </ul>
+        <p>The Rust crate exposes <code>db</code> and <code>mcp</code> as pure modules —
+           nothing in them depends on Tauri — so both the desktop app and the standalone
+           <a href="headless-mcp.html">headless binary</a> link against the same code path.</p>
+
+        <h2>IPC contract</h2>
+        <p>Deliberately tiny: <strong>one read command, one write command, one event</strong>.</p>
+        <pre data-lang="text"><code>invoke("project_snapshot") → { items, details, tags,   // READ
+  connection_types, explanations, explanation_details, mcp_port }
+
+invoke("mcp_call", { tool, args }) → result            // WRITE (any tool call)
+  // Runs the SAME handlers::dispatch the MCP server uses, stamped
+  // author_type = "human" with the OS username — this is what makes
+  // human and agent writes provably identical (parity).
+
+listen("db-changed", callback)  // emitted on every backend mutation; the
+                                // frontend responds by re-fetching the snapshot</code></pre>
+        <p>One write path (<code>dispatch</code>) and one coarse sync signal
+           (<code>db-changed</code>) — the same code for UI and agent writes.</p>
+
+        <h2>Persistence</h2>
+        <p>Each project is a single <code>.lsvr</code> file (SQLite, WAL mode, foreign keys
+           on). Projects can be backed up or shared by copying the file.</p>
+        <blockquote><p><strong>Implementation status.</strong> The desktop app currently
+           opens (or creates) <code>project.lsvr</code> in its working directory; an
+           open/new file dialog and OS file-association are planned (see
+           <a href="file-formats.html">File formats</a>).</p></blockquote>
+      </article>
+      <nav class="page-nav">
+        <a class="prev" href="building.html">&larr; Building from source</a>
+        <span class="spacer"></span>
+        <a class="next" href="data-model.html">Data model &rarr;</a>
+      </nav>
+    </main>
+  </div>
+  <footer class="sitefoot">
+    <p>LiteSkill VR guide · <a href="../index.html">home</a> · <a href="https://github.com/liteskill-io/liteskill-vr">source</a></p>
+  </footer>
+</body>
+</html>

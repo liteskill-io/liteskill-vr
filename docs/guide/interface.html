@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The interface — LiteSkill VR</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/logo.svg">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">
+      <img src="../assets/logo.svg" alt="" class="brand-mark">
+      <span class="brand-name">LITESKILL&nbsp;VR</span>
+      <span class="brand-tag">// guide</span>
+    </a>
+    <nav class="top-nav">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Guide</a>
+      <a href="https://github.com/liteskill-io/liteskill-vr">Source</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <p class="sidebar-section">Guide</p>
+      <ul>
+        <li><a href="index.html">Contents</a></li>
+      </ul>
+      <p class="sidebar-section">Specification</p>
+      <ul>
+        <li><a href="introduction.html">Introduction</a></li>
+      </ul>
+      <p class="sidebar-section">Concept</p>
+      <ul>
+        <li><a href="how-it-works.html">How it works</a></li>
+      </ul>
+      <p class="sidebar-section">User Guide</p>
+      <ul>
+        <li><a href="installation.html">Installation</a></li>
+        <li><a href="first-project.html">Your first project</a></li>
+        <li><a href="interface.html" aria-current="page">The interface</a></li>
+        <li><a href="agents.html">Working with AI agents</a></li>
+        <li><a href="headless-mcp.html">Headless MCP server</a></li>
+      </ul>
+      <p class="sidebar-section">Development</p>
+      <ul>
+        <li><a href="getting-started.html">Development setup</a></li>
+        <li><a href="building.html">Building from source</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="data-model.html">Data model</a></li>
+        <li><a href="mcp-tools.html">MCP tools</a></li>
+      </ul>
+      <p class="sidebar-section">Reference</p>
+      <ul>
+        <li><a href="file-formats.html">File formats</a></li>
+        <li><a href="security.html">Security</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+      <article>
+        <h1>The Interface</h1>
+        <p>The UI is built for rapid navigation across a large project: hop between
+           items, search for patterns, review AI-generated findings, and correct
+           mistakes without losing context.</p>
+
+        <blockquote><p><strong>Core requirement: human/agent parity.</strong> There must be
+           <strong>zero things an AI agent can do that a human cannot do in the UI</strong>.
+           Every mutating MCP tool has a human CRUD affordance (<code>human ≥ agent</code>),
+           enforced in CI (<code>task parity:check</code>). The UI is a full read-<strong>write</strong>
+           client: reads come from <code>project_snapshot</code>; writes go through a single
+           <code>mcp_call(tool, args)</code> command that runs the <em>same dispatch</em> as
+           the MCP server, stamped <code>author_type: "human"</code>, refreshing on
+           <code>db-changed</code>. Still <strong>planned</strong>: the command palette,
+           markdown rendering, tab badges/reordering, and breadcrumb/history.</p></blockquote>
+
+        <h2>Design philosophy</h2>
+        <ul>
+        <li><strong>Tabs, not panels</strong> — each item opens in a tab, like a browser.</li>
+        <li><strong>Speed over structure</strong> — every view reachable in 1–2 keystrokes.</li>
+        <li><strong>Search everything</strong> — full-text search across notes, items of
+            interest, and connections.</li>
+        <li><strong>Minimal chrome</strong> — maximize content area; collapse the rest on demand.</li>
+        </ul>
+
+        <h2>Layout</h2>
+        <pre data-lang="text"><code>┌──────────────────────────────────────────────────────────┐
+        │ ◄ ►  Breadcrumb: project > httpd > parse_header           │
+        ├──────────────────────────────────────────────────────────┤
+        │                  Active Tab (full bleed)                   │
+        │   Item Detail / Connection Map / Search Results           │
+        ├──────────────────────────────────────────────────────────┤
+        │  httpd  ▸ libfoo.so  ▸ httpd.conf  ▸ init.sh  [+]         │
+        ├──────────────────────────────────────────────────────────┤
+        │  MCP: listening  │  12 items  │  3 critical  │  5 high     │
+        └──────────────────────────────────────────────────────────┘</code></pre>
+
+        <h2>Views</h2>
+        <h3>Project overview</h3>
+        <p>The home view when no item tab is focused: a list/grid of all items, grouped
+           by <code>item_type</code> or flat, color-coded by analysis status, with quick
+           stats per item and a tag-filter sidebar.</p>
+
+        <h3>Item detail</h3>
+        <p>The main view when an item tab is active — <strong>read-only today</strong>; the
+           inline edit/add/delete affordances below are planned. Three sections:</p>
+        <ul>
+        <li><strong>Header</strong> — name, type, path, architecture, status, tags
+            (planned: inline edit + delete).</li>
+        <li><strong>Items of interest</strong> — each shows title, severity badge,
+            location, description preview, and tags; click to expand (planned: inline
+            edit/delete, <code>n</code> to add).</li>
+        <li><strong>Notes</strong> — author (human/agent) badge, timestamp, and tags;
+            shown as plain text today (planned: markdown rendering, <code>a</code> to add).</li>
+        <li><strong>Connections</strong> — source → target with type and description;
+            click to navigate to the other end.</li>
+        </ul>
+
+        <h3 id="connection-map">Connection map</h3>
+        <p>A project-wide Cytoscape.js graph: items are nodes, connections are edges,
+           edge labels show the connection type, nodes are colored by analysis status and
+           sized by IOI count. Click a node to open it as a tab. Useful for seeing how
+           components relate across a firmware image.</p>
+
+        <h3>Tag manager &amp; search — planned</h3>
+        <p>Neither is in the UI yet. Tags are shown read-only on items and findings;
+           managing tags and running full-text <code>search</code> / structured
+           <code>filter</code> happen over MCP today (see
+           <a href="mcp-tools.html">MCP tools</a>). The intended UI: a tag manager to
+           create/edit/delete tags, and a grouped search-results view with highlighted
+           snippets.</p>
+
+        <h2>Keyboard shortcuts</h2>
+        <blockquote><p><strong>Planned, except zoom.</strong> Only
+           <code>Ctrl</code>/<code>⌘</code> <code>+</code>/<code>-</code>/<code>0</code>
+           (zoom) are wired up today; the rest of this table is a design target.</p></blockquote>
+        <table>
+        <thead><tr><th>Key</th><th>Action</th></tr></thead>
+        <tbody>
+        <tr><td><code>⌘K</code> / <code>Ctrl+K</code></td><td>Command palette (search everything)</td></tr>
+        <tr><td><code>n</code></td><td>New item of interest on current item</td></tr>
+        <tr><td><code>a</code></td><td>New note on current item</td></tr>
+        <tr><td><code>c</code></td><td>New connection from current context</td></tr>
+        <tr><td><code>Tab</code> / <code>Shift+Tab</code></td><td>Cycle between open tabs</td></tr>
+        <tr><td><code>Ctrl+[</code> / <code>Ctrl+]</code></td><td>History back / forward</td></tr>
+        <tr><td><code>Esc</code></td><td>Dismiss overlay / go up one level</td></tr>
+        <tr><td><code>?</code></td><td>Show the keyboard-shortcut cheatsheet</td></tr>
+        <tr><td><code>Delete</code> / <code>Backspace</code></td><td>Delete selected entity (with confirmation)</td></tr>
+        </tbody>
+        </table>
+
+        <p>When an agent creates, updates, or deletes entities via MCP, the UI updates
+           immediately (it re-fetches the snapshot on the <code>db-changed</code> event).
+           Dark mode is the only theme today; a light mode, markdown rendering of notes,
+           and syntax highlighting are planned.</p>
+      </article>
+      <nav class="page-nav">
+        <a class="prev" href="first-project.html">&larr; Your first project</a>
+        <span class="spacer"></span>
+        <a class="next" href="agents.html">Working with AI agents &rarr;</a>
+      </nav>
+    </main>
+  </div>
+  <footer class="sitefoot">
+    <p>LiteSkill VR guide · <a href="../index.html">home</a> · <a href="https://github.com/liteskill-io/liteskill-vr">source</a></p>
+  </footer>
+</body>
+</html>

@@ -1,6 +1,6 @@
 [package]
 name = "liteskill-vr"
-version = "0.1.4"
+version = "0.1.5"
 description = "Structured notebook for reverse engineering research"
 license = "Apache-2.0"
 authors = []
@@ -8,6 +8,21 @@ edition = "2021"
 rust-version = "1.77"
 publish = false
 default-run = "liteskill-vr"
+
+# Lint policy lives here (Cargo 1.74+ `[lints]`) rather than in
+# .cargo/config.toml rustflags: it applies only to this crate (not its
+# dependencies) and does not invalidate the build cache between `cargo build`,
+# `cargo clippy`, and rust-analyzer. Lints are kept at `warn` here; CI and the
+# git hooks run clippy with `-D warnings` (see `task rs:clippy`) to make them
+# hard failures.
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+# Pedantic/nursery lints that are too noisy for this codebase.
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
 
 [features]
 default = ["gui"]
@@ -38,6 +53,9 @@ rusqlite = { version = "0.35", features = ["bundled"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2"
+# HTML sanitizer for agent/human-authored diagram HTML — strips scripts, event
+# handlers, and unsafe URLs server-side so only safe markup is ever stored.
+ammonia = "4"
 axum = "0.8"
 tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "signal", "macros"] }
 rmcp = { version = "1.4.0", features = ["transport-streamable-http-server", "transport-io", "server"] }

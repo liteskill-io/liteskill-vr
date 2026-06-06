@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Introduction — LiteSkill VR</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/logo.svg">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">
+      <img src="../assets/logo.svg" alt="" class="brand-mark">
+      <span class="brand-name">LITESKILL&nbsp;VR</span>
+      <span class="brand-tag">// guide</span>
+    </a>
+    <nav class="top-nav">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Guide</a>
+      <a href="https://github.com/liteskill-io/liteskill-vr">Source</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <p class="sidebar-section">Guide</p>
+      <ul>
+        <li><a href="index.html">Contents</a></li>
+      </ul>
+      <p class="sidebar-section">Specification</p>
+      <ul>
+        <li><a href="introduction.html" aria-current="page">Introduction</a></li>
+      </ul>
+      <p class="sidebar-section">Concept</p>
+      <ul>
+        <li><a href="how-it-works.html">How it works</a></li>
+      </ul>
+      <p class="sidebar-section">User Guide</p>
+      <ul>
+        <li><a href="installation.html">Installation</a></li>
+        <li><a href="first-project.html">Your first project</a></li>
+        <li><a href="interface.html">The interface</a></li>
+        <li><a href="agents.html">Working with AI agents</a></li>
+        <li><a href="headless-mcp.html">Headless MCP server</a></li>
+      </ul>
+      <p class="sidebar-section">Development</p>
+      <ul>
+        <li><a href="getting-started.html">Development setup</a></li>
+        <li><a href="building.html">Building from source</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="data-model.html">Data model</a></li>
+        <li><a href="mcp-tools.html">MCP tools</a></li>
+      </ul>
+      <p class="sidebar-section">Reference</p>
+      <ul>
+        <li><a href="file-formats.html">File formats</a></li>
+        <li><a href="security.html">Security</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+      <article>
+        <h1>Introduction</h1>
+        <p>LiteSkill VR is a structured notebook for reverse-engineering research. It
+           stores no files, runs no analysis, and renders no disassembly. It is a
+           <strong>documentation layer</strong> where humans and AI agents record what
+           they find using other tools — Ghidra, IDA, the command line, and so on.</p>
+
+        <p>The app hosts an <a href="mcp-tools.html">MCP server</a> on localhost so AI
+           agents like Claude Code or Codex can read and write research data alongside
+           the researcher, in real time.</p>
+
+        <blockquote>
+        <p>As a cybersecurity researcher using AI, my life is a mess of markdown files
+           and hard-to-read chat histories. I wish there were a standard format I could
+           give to my agents that would let me easily view status — and a single file I
+           could share with others or save for future reference.</p>
+        </blockquote>
+
+        <h2>Goals</h2>
+        <ul>
+        <li><strong>Structured research database</strong> — projects contain items
+            (binaries, scripts, configs — any subject of analysis), each with notes,
+            items of interest, and connections to other items.</li>
+        <li><strong>Read-write MCP interface</strong> — agents query existing research,
+            review past sessions, search for patterns, and build on prior analysis.
+            Batch operations and structured filters support serious work at scale.</li>
+        <li><strong>Registered vocabularies</strong> — tags and connection types must be
+            registered before use, preventing drift across sessions. A starter set of
+            common vulnerability classes ships with every project.</li>
+        <li><strong>Searchability</strong> — full-text search and structured filtering
+            across all entities in a project.</li>
+        <li><strong>One database per project</strong> — each project is a standalone
+            <code>.lsvr</code> file (SQLite). Easy to back up, share, or archive.</li>
+        <li><strong>Offline-first</strong> — all data stored locally.</li>
+        </ul>
+
+        <h2>Non-goals</h2>
+        <ul>
+        <li>Not a binary-analysis tool — no disassembly, decompilation, or file storage.</li>
+        <li>Not a chat application — no built-in AI chat. Use Claude Code or Codex externally.</li>
+        <li>Not a Ghidra plugin — Ghidra stays separate; agents bridge the two via MCP.</li>
+        <li>Not a fuzzer, scanner, or exploit framework.</li>
+        </ul>
+
+        <h2>Who it is for</h2>
+        <ul>
+        <li>Security researchers performing manual vulnerability analysis</li>
+        <li>Red-team operators documenting engagement findings</li>
+        <li>Bug-bounty hunters structuring their methodology</li>
+        </ul>
+
+        <h2>Tech stack</h2>
+        <table>
+        <thead><tr><th>Layer</th><th>Technology</th></tr></thead>
+        <tbody>
+        <tr><td>Shell</td><td>Tauri v2 (Rust backend)</td></tr>
+        <tr><td>Frontend</td><td>TypeScript, React, Tailwind CSS</td></tr>
+        <tr><td>State</td><td>Zustand (client), SQLite (one <code>.lsvr</code> file per project)</td></tr>
+        <tr><td>Graphs</td><td>Cytoscape.js (connection-map visualization)</td></tr>
+        <tr><td>AI interface</td><td>MCP server (hosted by the Rust backend)</td></tr>
+        </tbody>
+        </table>
+
+        <p>Ready to install? Head to <a href="installation.html">Installation</a>, then
+           walk through <a href="first-project.html">Your first project</a>.</p>
+      </article>
+      <nav class="page-nav">
+        <a class="prev" href="../index.html">&larr; Home</a>
+        <span class="spacer"></span>
+        <a class="next" href="how-it-works.html">How it works &rarr;</a>
+      </nav>
+    </main>
+  </div>
+  <footer class="sitefoot">
+    <p>LiteSkill VR guide · <a href="../index.html">home</a> · <a href="https://github.com/liteskill-io/liteskill-vr">source</a></p>
+  </footer>
+</body>
+</html>

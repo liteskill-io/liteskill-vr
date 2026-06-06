@@ -1,5 +1,32 @@
 # UI Specification
 
+> **Core requirement: human/agent parity.** There must be **zero things an AI
+> agent can do that a human cannot do in the UI.** Every mutating MCP tool has a
+> corresponding human CRUD affordance (`human >= agent`), enforced in CI (see
+> [Parity](#humanagent-parity)). The UI is therefore a full read-**write**
+> client, not a viewer.
+>
+> Reads come from the `project_snapshot` IPC command; writes go through a single
+> `mcp_call(tool, args)` IPC command that runs the **same dispatch** as the MCP
+> server, stamped `author_type: "human"`. After any write the UI refetches the
+> snapshot on `db-changed`. Some niceties below remain **Planned** (tagged):
+> the command palette, markdown rendering + syntax highlighting, tab
+> badges/reordering, and breadcrumb/back-forward history.
+
+## Human/agent parity
+
+Everything an agent can change, a human can change. The MCP `MUTATION_TOOLS`
+registry is the source of truth; `src/lib/capabilities.ts` maps each tool to the
+UI control that exposes it; `scripts/check-parity.mjs` (`task parity:check`,
+wired into `task check` and CI) fails the build if any mutating tool lacks a UI
+affordance. The `*_batch` tools are allowlisted — a human creating entries one
+at a time reaches the same state, so the capability is covered.
+
+Writes are modal/drawer forms (create + edit) with confirm-on-delete; the
+destructive `bulk_delete` sits behind an explicit danger confirm. Forms prefill
+registered tags and connection types from the snapshot so a human can't trip the
+"unregistered vocabulary" validation, and surface any dispatch error inline.
+
 ## Design Philosophy
 
 The UI is built for rapid navigation across a large project. The researcher needs to hop between items, search for patterns, review AI-generated findings, and correct mistakes without losing context.
@@ -32,7 +59,10 @@ Key principles:
 └──────────────────────────────────────────────────────────┘
 ```
 
-### Navigation Bar (top)
+### Navigation Bar (top) — Planned
+
+Not built. Navigation today is via the Sidebar (all items / by severity) and the
+Tab Bar. The intended design:
 
 - **Back / Forward**: browser-like history stack
 - **Breadcrumb**: project > item > item of interest (clickable at every level)
@@ -40,11 +70,8 @@ Key principles:
 
 ### Tab Bar (bottom of content area)
 
-- One tab per open item
-- Tabs show item name and a badge for number of items of interest
-- Right-click: close, close others
-- Drag to reorder
-- `[+]` or Ctrl+O to open another item
+- One tab per open item, showing the item name; click to switch, click ✕ to close (**Built**)
+- **Planned:** a badge for the number of items of interest, right-click close/close-others, drag-to-reorder, and `[+]`/`Ctrl+O` to open another item
 
 ### Status Bar
 
@@ -65,7 +92,8 @@ Home view when no item tab is focused.
 
 ### Item Detail
 
-Main view when an item tab is active. Three sections:
+Main view when an item tab is active. Each section has create/edit/delete
+affordances (modal forms; delete confirms). Three sections:
 
 **Header**: Item name, type, path, architecture, status, tags. Editable inline. Delete button.
 
@@ -105,7 +133,9 @@ Project-wide view showing all items and their connections as a graph.
 
 ### Tag Manager
 
-Accessible from project settings or command palette.
+Full CRUD for the registered tag vocabulary (parity with `tag_create` /
+`tag_delete`), plus the connection-type vocabulary (Connection-Type Manager).
+Accessible from the sidebar.
 
 - List of all registered tags with name, description, color, and usage count
 - Create new tags
@@ -113,6 +143,8 @@ Accessible from project settings or command palette.
 - Delete tags (removes from all entities)
 
 ### Search Results
+
+A search/filter view giving humans parity with the `search` and `filter` tools.
 
 Full-screen search results view.
 
@@ -122,6 +154,11 @@ Full-screen search results view.
 - Filter by entity type, severity, tags
 
 ## Keyboard Shortcuts
+
+> **Planned**, except the zoom shortcuts. Today only `Ctrl`/`⌘` `+` / `-` / `0`
+> (zoom in / out / reset) are wired up. The rest of this table is a design
+> target — none of `⌘K`, `n`, `a`, `c`, `Tab`, `Esc`, `?`, or `Delete` is
+> implemented yet.
 
 | Key                    | Action                                     |
 | ---------------------- | ------------------------------------------ |
@@ -142,6 +179,7 @@ When an AI agent creates, updates, or deletes entities via MCP, the UI updates i
 
 ## Theming
 
-- Dark mode default
-- Light mode available
-- Syntax highlighting for code snippets in notes (Shiki)
+- Dark mode (the only theme today; a monospace, terminal-leaning aesthetic).
+- **Planned:** a light mode, markdown rendering of notes/descriptions (they are
+  currently shown as escaped plain text), and syntax highlighting for code
+  snippets. No markdown or highlighting library is wired up yet.

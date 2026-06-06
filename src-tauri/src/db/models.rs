@@ -117,6 +117,156 @@ pub struct ItemDetail {
     pub connections: Vec<Connection>,
 }
 
+// --- Explanation layer ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Explanation {
+    pub id: String,
+    pub stable_key: String,
+    pub title: String,
+    pub explanation_type: String,
+    pub summary: String,
+    pub status: String,
+    pub confidence: String,
+    /// Server-sanitized HTML diagram (no scripts/JS). `None` if unset.
+    pub diagram_html: Option<String>,
+    pub author: String,
+    pub author_type: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Claim {
+    pub id: String,
+    pub explanation_id: String,
+    pub stable_key: String,
+    pub text: String,
+    pub claim_type: String,
+    pub status: String,
+    pub confidence: String,
+    pub author: String,
+    pub author_type: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenQuestion {
+    pub id: String,
+    pub explanation_id: String,
+    pub stable_key: String,
+    pub question: String,
+    pub priority: String,
+    pub status: String,
+    pub answer_claim_id: Option<String>,
+    pub author: String,
+    pub author_type: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvidenceLink {
+    pub id: String,
+    pub target_type: String,
+    pub target_id: String,
+    pub source_entity_type: Option<String>,
+    pub source_entity_id: Option<String>,
+    pub external_locator: Option<String>,
+    pub external_kind: Option<String>,
+    pub evidence_type: String,
+    pub strength: String,
+    pub excerpt: Option<String>,
+    pub author: String,
+    pub author_type: String,
+    pub created_at: String,
+}
+
+/// Listing row for an explanation, with child counts (no children inlined).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExplanationSummary {
+    #[serde(flatten)]
+    pub explanation: Explanation,
+    pub tags: Vec<String>,
+    pub scope_item_ids: Vec<String>,
+    pub claim_count: i64,
+    pub open_question_count: i64,
+    pub evidence_count: i64,
+}
+
+/// A state in a `state_machine` explanation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct State {
+    pub id: String,
+    pub explanation_id: String,
+    pub stable_key: String,
+    pub name: String,
+    pub description: String,
+    pub is_initial: bool,
+    pub is_terminal: bool,
+    pub author: String,
+    pub author_type: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// A transition between two states (referenced by their `stable_key`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Transition {
+    pub id: String,
+    pub explanation_id: String,
+    pub stable_key: String,
+    pub from_state: String,
+    pub to_state: String,
+    pub event: String,
+    pub guard: Option<String>,
+    pub action: Option<String>,
+    pub description: String,
+    pub author: String,
+    pub author_type: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// A field in a `packet_format` / `memory_layout` (struct) explanation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Field {
+    pub id: String,
+    pub explanation_id: String,
+    pub stable_key: String,
+    pub name: String,
+    pub field_type: String,
+    pub offset: Option<i64>,
+    pub size: Option<i64>,
+    pub description: String,
+    pub author: String,
+    pub author_type: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// Full explanation with all of its children.
+///
+/// Claims, open questions, evidence, scope, and typed content — states +
+/// transitions (state machines) and fields (packets/structs). `diagram_text` is
+/// a generated-on-the-fly text rendering for agents — never stored.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExplanationDetail {
+    #[serde(flatten)]
+    pub explanation: Explanation,
+    pub tags: Vec<String>,
+    pub scope_item_ids: Vec<String>,
+    pub claims: Vec<Claim>,
+    pub open_questions: Vec<OpenQuestion>,
+    pub evidence: Vec<EvidenceLink>,
+    pub states: Vec<State>,
+    pub transitions: Vec<Transition>,
+    pub fields: Vec<Field>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub diagram_text: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResult {
     pub entity_type: String,

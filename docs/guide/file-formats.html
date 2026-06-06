@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>File formats — LiteSkill VR</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/logo.svg">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">
+      <img src="../assets/logo.svg" alt="" class="brand-mark">
+      <span class="brand-name">LITESKILL&nbsp;VR</span>
+      <span class="brand-tag">// guide</span>
+    </a>
+    <nav class="top-nav">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Guide</a>
+      <a href="https://github.com/liteskill-io/liteskill-vr">Source</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <p class="sidebar-section">Guide</p>
+      <ul>
+        <li><a href="index.html">Contents</a></li>
+      </ul>
+      <p class="sidebar-section">Specification</p>
+      <ul>
+        <li><a href="introduction.html">Introduction</a></li>
+      </ul>
+      <p class="sidebar-section">Concept</p>
+      <ul>
+        <li><a href="how-it-works.html">How it works</a></li>
+      </ul>
+      <p class="sidebar-section">User Guide</p>
+      <ul>
+        <li><a href="installation.html">Installation</a></li>
+        <li><a href="first-project.html">Your first project</a></li>
+        <li><a href="interface.html">The interface</a></li>
+        <li><a href="agents.html">Working with AI agents</a></li>
+        <li><a href="headless-mcp.html">Headless MCP server</a></li>
+      </ul>
+      <p class="sidebar-section">Development</p>
+      <ul>
+        <li><a href="getting-started.html">Development setup</a></li>
+        <li><a href="building.html">Building from source</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="data-model.html">Data model</a></li>
+        <li><a href="mcp-tools.html">MCP tools</a></li>
+      </ul>
+      <p class="sidebar-section">Reference</p>
+      <ul>
+        <li><a href="file-formats.html" aria-current="page">File formats</a></li>
+        <li><a href="security.html">Security</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+      <article>
+        <h1>File Formats</h1>
+        <blockquote><p><strong>Implementation status.</strong> Only the <code>.lsvr</code>
+           project file is implemented. Every export and import format below is
+           <strong>planned — not yet built</strong> (there is no export/import code in the
+           repo today), and OS file-association is not wired up either.</p></blockquote>
+        <h2>Project files</h2>
+        <p>Each project is a single <code>.lsvr</code> file (a SQLite database — WAL mode,
+           foreign keys on). Projects can be backed up, shared, or archived by copying the
+           file.</p>
+        <blockquote><p><strong>Status.</strong> The desktop app currently opens (or creates)
+           <code>project.lsvr</code> in its working directory. Planned: an open/new file
+           dialog and registering the <code>.lsvr</code> extension with the OS so
+           double-clicking opens the project.</p></blockquote>
+
+        <h2>Export formats — planned</h2>
+        <p>None of the export formats below are implemented yet.</p>
+        <h3>Markdown report</h3>
+        <p>A human-readable report generated from project data — items, items of interest
+           (with severity and tags), notes, and connections, grouped per item.</p>
+        <pre data-lang="markdown"><code># [Project Name] — Research Report
+
+        ## Item: httpd (ELF, arm32)
+
+        **Status**: reviewed
+        **Path**: /usr/bin/httpd
+
+        ### Items of Interest
+
+        #### parse_header() [Critical] [memory-corruption]
+        **Location**: 0x08041234
+
+        No bounds check on Content-Length header...
+
+        ### Connections
+        - httpd → libfoo.so [links]: dynamically links libfoo.so</code></pre>
+
+        <h3>JSON export</h3>
+        <p>A machine-readable full project export conforming to the data model.</p>
+        <pre data-lang="json"><code>{
+          "format": "liteskill-vr",
+          "version": "1.0",
+          "exported_at": "2026-04-13T00:00:00Z",
+          "project": { ... },
+          "tags": [ ... ],
+          "connection_types": [ ... ],
+          "items": [ ... ],
+          "notes": [ ... ],
+          "items_of_interest": [ ... ],
+          "connections": [ ... ]
+        }</code></pre>
+
+        <h3>SARIF</h3>
+        <p>Static Analysis Results Interchange Format — for integration with GitHub
+           Security, Azure DevOps, and other tools. Each item of interest maps to a SARIF
+           <code>result</code>, severity to <code>level</code>, and tags to <code>taxa</code>.</p>
+
+        <h2>Import formats — planned</h2>
+        <p>Not implemented yet.</p>
+        <ul>
+        <li><strong>SARIF import</strong> — import results from static-analysis tools as
+            draft items of interest for review.</li>
+        <li><strong>LiteSkill VR JSON</strong> — re-import previously exported projects
+            for merging or archiving.</li>
+        </ul>
+      </article>
+      <nav class="page-nav">
+        <a class="prev" href="mcp-tools.html">&larr; MCP tools</a>
+        <span class="spacer"></span>
+        <a class="next" href="security.html">Security &rarr;</a>
+      </nav>
+    </main>
+  </div>
+  <footer class="sitefoot">
+    <p>LiteSkill VR guide · <a href="../index.html">home</a> · <a href="https://github.com/liteskill-io/liteskill-vr">source</a></p>
+  </footer>
+</body>
+</html>

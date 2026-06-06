@@ -55,3 +55,35 @@ body {
   background: var(--color-accent-dim);
   color: var(--color-text-bright);
 }
+
+/* Scoped styling for agent/human-authored HTML diagrams (sanitized server-side).
+   Gives plain markup (tables, headings, code) a readable look without the author
+   needing to know our classes. */
+.lsvr-html-diagram table {
+  border-collapse: collapse;
+  margin: 0.25rem 0;
+}
+.lsvr-html-diagram th,
+.lsvr-html-diagram td {
+  border: 1px solid var(--color-border);
+  padding: 2px 8px;
+  text-align: left;
+}
+.lsvr-html-diagram th {
+  color: var(--color-text-dim);
+  font-weight: 600;
+}
+.lsvr-html-diagram code {
+  color: var(--color-accent);
+}
+.lsvr-html-diagram h1,
+.lsvr-html-diagram h2,
+.lsvr-html-diagram h3 {
+  color: var(--color-text-bright);
+  font-size: 1em;
+  margin: 0.4rem 0 0.2rem;
+}
+.lsvr-html-diagram ul {
+  margin: 0.25rem 0;
+  padding-left: 1.2rem;
+}

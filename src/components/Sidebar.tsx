@@ -1,3 +1,4 @@
+import { itemCreateForm } from "@/lib/forms";
 import { useStore } from "@/lib/store";
 
 import type { ItemDetail, ItemSummary } from "@/lib/types";
@@ -49,10 +50,16 @@ export function Sidebar(): React.JSX.Element {
   const openTab = useStore((s) => s.openTab);
   const showDashboard = useStore((s) => s.showDashboard);
   const showConnectionMap = useStore((s) => s.showConnectionMap);
+  const showExplanations = useStore((s) => s.showExplanations);
+  const showVocabulary = useStore((s) => s.showVocabulary);
+  const openForm = useStore((s) => s.openForm);
+  const explanationCount = useStore((s) => s.explanations.length);
   const itemDetails = useStore((s) => s.itemDetails);
 
   const onDashboard = activeTab === null && rootView === "dashboard";
   const onConnections = activeTab === null && rootView === "connections";
+  const onExplanations = activeTab === null && rootView === "explanations";
+  const onVocabulary = activeTab === null && rootView === "vocabulary";
 
   const groups = groupBySeverity(items, itemDetails);
   const hasFindings = Object.values(groups).some((g) => g.length > 0);
@@ -89,11 +96,32 @@ export function Sidebar(): React.JSX.Element {
       <button
         type="button"
         onClick={showConnectionMap}
-        className={`w-full border-b border-border px-3 py-2 text-left text-[10px] font-bold tracking-[0.2em] uppercase transition-colors hover:bg-surface-hover ${
+        className={`w-full px-3 py-2 text-left text-[10px] font-bold tracking-[0.2em] uppercase transition-colors hover:bg-surface-hover ${
           onConnections ? "text-accent" : "text-text-dim"
         }`}
       >
         ⬡ Connection Map
+      </button>
+      <button
+        type="button"
+        onClick={showExplanations}
+        className={`flex w-full items-center justify-between border-b border-border px-3 py-2 text-left text-[10px] font-bold tracking-[0.2em] uppercase transition-colors hover:bg-surface-hover ${
+          onExplanations ? "text-accent" : "text-text-dim"
+        }`}
+      >
+        <span>✦ Explanations</span>
+        {explanationCount > 0 && (
+          <span className="tabular-nums">{explanationCount}</span>
+        )}
+      </button>
+      <button
+        type="button"
+        onClick={showVocabulary}
+        className={`w-full border-b border-border px-3 py-2 text-left text-[10px] font-bold tracking-[0.2em] uppercase transition-colors hover:bg-surface-hover ${
+          onVocabulary ? "text-accent" : "text-text-dim"
+        }`}
+      >
+        # Vocabularies
       </button>
 
       {/* Severity groups */}
@@ -141,8 +169,20 @@ export function Sidebar(): React.JSX.Element {
 
       {/* All items */}
       <div className="flex-1 overflow-y-auto">
-        <div className="px-3 py-1.5 text-[9px] font-semibold tracking-widest text-text-dim uppercase">
-          All Items ({items.length})
+        <div className="flex items-center justify-between px-3 py-1.5">
+          <span className="text-[9px] font-semibold tracking-widest text-text-dim uppercase">
+            All Items ({items.length})
+          </span>
+          <button
+            type="button"
+            className="text-[12px] leading-none text-text-dim hover:text-accent"
+            title="New item"
+            onClick={(): void => {
+              openForm(itemCreateForm());
+            }}
+          >
+            +
+          </button>
         </div>
         {items.length === 0 && (
           <div className="px-3 py-3 text-text-dim text-[10px]">

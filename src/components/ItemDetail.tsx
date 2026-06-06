@@ -1,12 +1,71 @@
 import { SeverityBadge, StatusBadge } from "@/components/SeverityBadge";
+import {
+  connectionCreateForm,
+  ioiCreateForm,
+  ioiEditForm,
+  itemEditForm,
+  noteCreateForm,
+  noteEditForm,
+} from "@/lib/forms";
 import { useStore } from "@/lib/store";
+
+function RowActions({
+  onEdit,
+  onDelete,
+}: {
+  onEdit?: () => void;
+  onDelete: () => void;
+}): React.JSX.Element {
+  return (
+    <span className="ml-auto flex shrink-0 gap-2">
+      {onEdit && (
+        <button
+          type="button"
+          className="text-[10px] text-text-dim hover:text-accent"
+          onClick={onEdit}
+        >
+          edit
+        </button>
+      )}
+      <button
+        type="button"
+        className="text-[10px] text-text-dim hover:text-critical"
+        onClick={onDelete}
+      >
+        delete
+      </button>
+    </span>
+  );
+}
+
+function AddButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      className="text-[10px] text-accent hover:underline"
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
+}
 
 export function ItemDetail({ id }: { id: string }): React.JSX.Element {
   const detail = useStore((s) => s.itemDetails[id]);
   const itemDetails = useStore((s) => s.itemDetails);
   const items = useStore((s) => s.items);
+  const connectionTypes = useStore((s) => s.connectionTypes);
   const openTab = useStore((s) => s.openTab);
   const showConnectionMap = useStore((s) => s.showConnectionMap);
+  const showDashboard = useStore((s) => s.showDashboard);
+  const openForm = useStore((s) => s.openForm);
+  const openConfirm = useStore((s) => s.openConfirm);
 
   if (!detail) {
     return (
@@ -44,9 +103,23 @@ export function ItemDetail({ id }: { id: string }): React.JSX.Element {
           <span className="text-[10px] text-text-dim">
             {item.analysis_status.replace("_", " ")}
           </span>
+          <RowActions
+            onEdit={(): void => {
+              openForm(itemEditForm(item));
+            }}
+            onDelete={(): void => {
+              openConfirm({
+                title: "Delete item",
+                message: `Delete "${item.name}"? Its notes, findings, and connections are removed too.`,
+                tool: "item_delete",
+                args: { id: item.id },
+              });
+              showDashboard();
+            }}
+          />
         </div>
         {item.path && (
-          <div className="mt-1 text-[10px] text-text-dim font-mono">
+          <div className="mt-1 font-mono text-[10px] text-text-dim">
             {item.path}
           </div>
         )}
@@ -63,145 +136,169 @@ export function ItemDetail({ id }: { id: string }): React.JSX.Element {
           </div>
         )}
         {item.description && (
-          <div className="mt-2 text-xs text-text-dim whitespace-pre-wrap">
+          <div className="mt-2 text-xs whitespace-pre-wrap text-text-dim">
             {item.description}
           </div>
         )}
       </div>
 
       {/* IOIs */}
-      {items_of_interest.length > 0 && (
-        <div className="border-b border-border">
-          <div className="px-4 py-2 text-[10px] font-semibold tracking-widest text-text-dim uppercase">
-            Items of Interest ({items_of_interest.length})
-          </div>
-          {items_of_interest.map((ioi) => (
-            <div
-              key={ioi.id}
-              className="border-t border-border px-4 py-2 hover:bg-surface-hover transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <SeverityBadge severity={ioi.severity} />
-                <StatusBadge status={ioi.status} />
-                <span className="text-xs font-medium text-text-bright font-mono">
-                  {ioi.title}
-                </span>
-                {ioi.location && (
-                  <span className="text-[10px] text-text-dim font-mono">
-                    @ {ioi.location}
-                  </span>
-                )}
-              </div>
-              {ioi.description && (
-                <div className="mt-1 text-xs text-text-dim whitespace-pre-wrap">
-                  {ioi.description}
-                </div>
-              )}
-              {ioi.tags.length > 0 && (
-                <div className="mt-1 flex gap-1">
-                  {ioi.tags.map((t) => (
-                    <span
-                      key={t}
-                      className="rounded bg-accent-dim/30 px-1 py-0.5 text-[9px] text-accent"
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div className="mt-1 text-[9px] text-text-dim">
-                {ioi.author_type === "agent" ? "🤖" : "👤"} {ioi.author}
-              </div>
-            </div>
-          ))}
+      <div className="border-b border-border">
+        <div className="flex items-center gap-2 px-4 py-2 text-[10px] font-semibold tracking-widest text-text-dim uppercase">
+          <span>Items of Interest ({items_of_interest.length})</span>
+          <AddButton
+            label="+ Finding"
+            onClick={(): void => {
+              openForm(ioiCreateForm(id));
+            }}
+          />
         </div>
-      )}
+        {items_of_interest.map((ioi) => (
+          <div key={ioi.id} className="border-t border-border px-4 py-2">
+            <div className="flex items-center gap-2">
+              <SeverityBadge severity={ioi.severity} />
+              <StatusBadge status={ioi.status} />
+              <span className="font-mono text-xs font-medium text-text-bright">
+                {ioi.title}
+              </span>
+              {ioi.location && (
+                <span className="font-mono text-[10px] text-text-dim">
+                  @ {ioi.location}
+                </span>
+              )}
+              <RowActions
+                onEdit={(): void => {
+                  openForm(ioiEditForm(ioi));
+                }}
+                onDelete={(): void => {
+                  openConfirm({
+                    title: "Delete finding",
+                    message: `Delete "${ioi.title}"?`,
+                    tool: "ioi_delete",
+                    args: { id: ioi.id },
+                  });
+                }}
+              />
+            </div>
+            {ioi.description && (
+              <div className="mt-1 text-xs whitespace-pre-wrap text-text-dim">
+                {ioi.description}
+              </div>
+            )}
+            <div className="mt-1 text-[9px] text-text-dim">
+              {ioi.author_type === "agent" ? "🤖" : "👤"} {ioi.author}
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* Notes */}
-      {notes.length > 0 && (
-        <div className="border-b border-border">
-          <div className="px-4 py-2 text-[10px] font-semibold tracking-widest text-text-dim uppercase">
-            Notes ({notes.length})
-          </div>
-          {notes.map((note) => (
-            <div
-              key={note.id}
-              className="border-t border-border px-4 py-2 hover:bg-surface-hover transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-text-bright">
-                  {note.title}
-                </span>
-                <span className="text-[9px] text-text-dim">
-                  {note.author_type === "agent" ? "🤖" : "👤"} {note.author}
-                </span>
-              </div>
-              <div className="mt-1 text-xs text-text whitespace-pre-wrap">
-                {note.content}
-              </div>
-            </div>
-          ))}
+      <div className="border-b border-border">
+        <div className="flex items-center gap-2 px-4 py-2 text-[10px] font-semibold tracking-widest text-text-dim uppercase">
+          <span>Notes ({notes.length})</span>
+          <AddButton
+            label="+ Note"
+            onClick={(): void => {
+              openForm(noteCreateForm(id));
+            }}
+          />
         </div>
-      )}
+        {notes.map((note) => (
+          <div key={note.id} className="border-t border-border px-4 py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-text-bright">
+                {note.title}
+              </span>
+              <span className="text-[9px] text-text-dim">
+                {note.author_type === "agent" ? "🤖" : "👤"} {note.author}
+              </span>
+              <RowActions
+                onEdit={(): void => {
+                  openForm(noteEditForm(note));
+                }}
+                onDelete={(): void => {
+                  openConfirm({
+                    title: "Delete note",
+                    message: `Delete note "${note.title}"?`,
+                    tool: "note_delete",
+                    args: { id: note.id },
+                  });
+                }}
+              />
+            </div>
+            <div className="mt-1 text-xs whitespace-pre-wrap text-text">
+              {note.content}
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* Connections */}
-      {connections.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between px-4 py-2 text-[10px] font-semibold tracking-widest uppercase">
-            <span className="text-text-dim">
-              Connections ({connections.length})
-            </span>
-            <button
-              type="button"
-              onClick={showConnectionMap}
-              className="text-accent hover:text-text-bright transition-colors"
-            >
-              ⬡ View in map
-            </button>
-          </div>
-          {connections.map((conn) => {
-            const isSource = conn.source_id === id;
-            const otherId = isSource ? conn.target_id : conn.source_id;
-            const otherType = isSource ? conn.target_type : conn.source_type;
-            const otherName = resolveEntityName(otherId, otherType);
-            const direction = isSource ? "→" : "←";
+      <div>
+        <div className="flex items-center gap-2 px-4 py-2 text-[10px] font-semibold tracking-widest uppercase">
+          <span className="text-text-dim">
+            Connections ({connections.length})
+          </span>
+          <AddButton
+            label="+ Connect"
+            onClick={(): void => {
+              openForm(connectionCreateForm(id, items, connectionTypes));
+            }}
+          />
+          <button
+            type="button"
+            onClick={showConnectionMap}
+            className="ml-auto text-accent transition-colors hover:text-text-bright"
+          >
+            ⬡ View in map
+          </button>
+        </div>
+        {connections.map((conn) => {
+          const isSource = conn.source_id === id;
+          const otherId = isSource ? conn.target_id : conn.source_id;
+          const otherType = isSource ? conn.target_type : conn.source_type;
+          const otherName = resolveEntityName(otherId, otherType);
+          const direction = isSource ? "→" : "←";
 
-            return (
+          return (
+            <div
+              key={conn.id}
+              className="flex items-center gap-2 border-t border-border px-4 py-2"
+            >
               <button
-                key={conn.id}
                 type="button"
                 onClick={(): void => {
                   if (otherType === "item") openTab(otherId);
                 }}
-                className="flex w-full items-center gap-2 border-t border-border px-4 py-2 text-left hover:bg-surface-hover transition-colors"
+                className="flex flex-1 items-center gap-2 text-left"
               >
-                <span className="text-[10px] text-accent font-mono">
+                <span className="font-mono text-[10px] text-accent">
                   {conn.connection_type}
                 </span>
                 <span className="text-[10px] text-text-dim">{direction}</span>
-                <span className="text-xs text-text-bright font-mono">
+                <span className="font-mono text-xs text-text-bright">
                   {otherName}
                 </span>
                 {conn.description && (
-                  <span className="text-[10px] text-text-dim truncate">
+                  <span className="truncate text-[10px] text-text-dim">
                     — {conn.description}
                   </span>
                 )}
               </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Empty state */}
-      {items_of_interest.length === 0 &&
-        notes.length === 0 &&
-        connections.length === 0 && (
-          <div className="flex flex-1 items-center justify-center text-text-dim text-xs">
-            No findings yet. Use MCP to add items of interest, notes, and
-            connections.
-          </div>
-        )}
+              <RowActions
+                onDelete={(): void => {
+                  openConfirm({
+                    title: "Delete connection",
+                    message: "Delete this connection?",
+                    tool: "connection_delete",
+                    args: { id: conn.id },
+                  });
+                }}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

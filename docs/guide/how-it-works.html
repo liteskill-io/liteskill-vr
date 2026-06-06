@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How it works — LiteSkill VR</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/logo.svg">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">
+      <img src="../assets/logo.svg" alt="" class="brand-mark">
+      <span class="brand-name">LITESKILL&nbsp;VR</span>
+      <span class="brand-tag">// guide</span>
+    </a>
+    <nav class="top-nav">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Guide</a>
+      <a href="https://github.com/liteskill-io/liteskill-vr">Source</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <p class="sidebar-section">Guide</p>
+      <ul>
+        <li><a href="index.html">Contents</a></li>
+      </ul>
+      <p class="sidebar-section">Specification</p>
+      <ul>
+        <li><a href="introduction.html">Introduction</a></li>
+      </ul>
+      <p class="sidebar-section">Concept</p>
+      <ul>
+        <li><a href="how-it-works.html" aria-current="page">How it works</a></li>
+      </ul>
+      <p class="sidebar-section">User Guide</p>
+      <ul>
+        <li><a href="installation.html">Installation</a></li>
+        <li><a href="first-project.html">Your first project</a></li>
+        <li><a href="interface.html">The interface</a></li>
+        <li><a href="agents.html">Working with AI agents</a></li>
+        <li><a href="headless-mcp.html">Headless MCP server</a></li>
+      </ul>
+      <p class="sidebar-section">Development</p>
+      <ul>
+        <li><a href="getting-started.html">Development setup</a></li>
+        <li><a href="building.html">Building from source</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="data-model.html">Data model</a></li>
+        <li><a href="mcp-tools.html">MCP tools</a></li>
+      </ul>
+      <p class="sidebar-section">Reference</p>
+      <ul>
+        <li><a href="file-formats.html">File formats</a></li>
+        <li><a href="security.html">Security</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+      <article>
+        <h1>How it works</h1>
+        <p>LiteSkill VR sits between the researcher and their AI agents as a shared,
+           structured memory. The researcher drives analysis tools; the agent documents
+           findings through MCP; both see the same project update live.</p>
+
+        <figure class="diagram">
+        <svg viewBox="0 0 760 260" role="img" aria-label="Research loop diagram" font-family="ui-monospace, monospace" font-size="13">
+          <defs>
+            <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+              <path d="M0 0 L7 3 L0 6 Z" fill="#7df0ff"/>
+            </marker>
+          </defs>
+          <rect x="40" y="100" width="150" height="60" rx="8" fill="#120d24" stroke="#3dffa6"/>
+          <text x="115" y="126" text-anchor="middle" fill="#ece6ff">Researcher</text>
+          <text x="115" y="144" text-anchor="middle" fill="#8a83bf" font-size="11">+ Ghidra / IDA</text>
+
+          <rect x="305" y="100" width="150" height="60" rx="8" fill="#120d24" stroke="#52f0ff"/>
+          <text x="380" y="126" text-anchor="middle" fill="#ece6ff">LiteSkill VR</text>
+          <text x="380" y="144" text-anchor="middle" fill="#8a83bf" font-size="11">.lsvr + MCP</text>
+
+          <rect x="570" y="100" width="150" height="60" rx="8" fill="#120d24" stroke="#9b6bff"/>
+          <text x="645" y="126" text-anchor="middle" fill="#ece6ff">AI agent</text>
+          <text x="645" y="144" text-anchor="middle" fill="#8a83bf" font-size="11">Claude Code / Codex</text>
+
+          <line x1="190" y1="120" x2="300" y2="120" stroke="#7df0ff" marker-end="url(#ar)"/>
+          <line x1="305" y1="140" x2="195" y2="140" stroke="#7df0ff" marker-end="url(#ar)"/>
+          <line x1="570" y1="120" x2="460" y2="120" stroke="#7df0ff" marker-end="url(#ar)"/>
+          <line x1="455" y1="140" x2="565" y2="140" stroke="#7df0ff" marker-end="url(#ar)"/>
+          <text x="247" y="100" text-anchor="middle" fill="#8a83bf" font-size="10">UI</text>
+          <text x="512" y="100" text-anchor="middle" fill="#8a83bf" font-size="10">MCP</text>
+        </svg>
+        <figcaption>The researcher edits in the UI; the agent reads and writes the same
+           project over MCP. Everything lands in one <code>.lsvr</code> file.</figcaption>
+        </figure>
+
+        <h2>Typical workflow</h2>
+        <ol>
+        <li>The researcher opens LiteSkill VR and creates a project.</li>
+        <li>An agent (over MCP) adds items representing files of interest — MCP is the write path.</li>
+        <li>The researcher opens Ghidra with binaries loaded (e.g. <code>pyghidra-mcp</code> running).</li>
+        <li>The researcher starts Claude Code configured with both <code>pyghidra-mcp</code>
+            and <code>liteskill</code>.</li>
+        <li>Claude calls <code>project_summary</code> to orient, then analyzes via Ghidra and
+            documents into LiteSkill VR.</li>
+        <li>The researcher reviews the findings live in the UI (read-only today; UI editing is planned).</li>
+        <li>Next session: Claude calls <code>changes_since</code> to catch up, then continues
+            where the last session left off.</li>
+        </ol>
+
+        <p>On headless machines (CI, servers, remote boxes) the same MCP interface is
+           available as a standalone <a href="headless-mcp.html"><code>liteskillvr-mcp</code></a>
+           binary that runs directly against a <code>.lsvr</code> file with no GUI,
+           WebKitGTK, or Tauri dependencies.</p>
+
+        <p>For a hands-on walkthrough, see <a href="first-project.html">Your first
+           project</a>.</p>
+      </article>
+      <nav class="page-nav">
+        <a class="prev" href="introduction.html">&larr; Introduction</a>
+        <span class="spacer"></span>
+        <a class="next" href="installation.html">Installation &rarr;</a>
+      </nav>
+    </main>
+  </div>
+  <footer class="sitefoot">
+    <p>LiteSkill VR guide · <a href="../index.html">home</a> · <a href="https://github.com/liteskill-io/liteskill-vr">source</a></p>
+  </footer>
+</body>
+</html>

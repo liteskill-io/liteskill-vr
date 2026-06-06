@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Security — LiteSkill VR</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/logo.svg">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">
+      <img src="../assets/logo.svg" alt="" class="brand-mark">
+      <span class="brand-name">LITESKILL&nbsp;VR</span>
+      <span class="brand-tag">// guide</span>
+    </a>
+    <nav class="top-nav">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Guide</a>
+      <a href="https://github.com/liteskill-io/liteskill-vr">Source</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <p class="sidebar-section">Guide</p>
+      <ul>
+        <li><a href="index.html">Contents</a></li>
+      </ul>
+      <p class="sidebar-section">Specification</p>
+      <ul>
+        <li><a href="introduction.html">Introduction</a></li>
+      </ul>
+      <p class="sidebar-section">Concept</p>
+      <ul>
+        <li><a href="how-it-works.html">How it works</a></li>
+      </ul>
+      <p class="sidebar-section">User Guide</p>
+      <ul>
+        <li><a href="installation.html">Installation</a></li>
+        <li><a href="first-project.html">Your first project</a></li>
+        <li><a href="interface.html">The interface</a></li>
+        <li><a href="agents.html">Working with AI agents</a></li>
+        <li><a href="headless-mcp.html">Headless MCP server</a></li>
+      </ul>
+      <p class="sidebar-section">Development</p>
+      <ul>
+        <li><a href="getting-started.html">Development setup</a></li>
+        <li><a href="building.html">Building from source</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="data-model.html">Data model</a></li>
+        <li><a href="mcp-tools.html">MCP tools</a></li>
+      </ul>
+      <p class="sidebar-section">Reference</p>
+      <ul>
+        <li><a href="file-formats.html">File formats</a></li>
+        <li><a href="security.html" aria-current="page">Security</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+      <article>
+        <h1>Security</h1>
+        <p>LiteSkill VR handles sensitive vulnerability-research data. The threat model
+           below describes what the software defends against — and what it explicitly
+           leaves to the operating system.</p>
+
+        <blockquote>
+        <p>No at-rest encryption is provided by the software itself. This must be done at
+           the OS level (LUKS, FileVault, BitLocker, etc.).</p>
+        </blockquote>
+
+        <h2>Threat model</h2>
+        <table>
+        <thead><tr><th>Threat</th><th>Mitigation</th></tr></thead>
+        <tbody>
+        <tr><td>Malicious agent output</td><td>Agent-created content is currently rendered as <strong>escaped plain text</strong>, so embedded HTML never executes. (Planned markdown rendering must sanitize and forbid raw HTML.)</td></tr>
+        <tr><td>MCP server exposure</td><td>Bound to <code>127.0.0.1</code> only. Not accessible from the network.</td></tr>
+        <tr><td>Malicious imports (planned)</td><td>Import is not implemented yet; when added, parsers must validate and sanitize input with no code execution from imported data.</td></tr>
+        <tr><td>Supply chain (dependencies)</td><td>Tauri's Rust backend minimizes JS dependency surface. CSP enforced in the webview.</td></tr>
+        </tbody>
+        </table>
+
+        <h2>Data handling</h2>
+        <ul>
+        <li>All project data stored locally in SQLite — no cloud sync.</li>
+        <li>Every mutation is stamped with <code>author</code>, <code>author_type</code>, and a timestamp.</li>
+        <li><code>bulk_delete</code> requires at least one filter to prevent an accidental full wipe.</li>
+        <li><strong>Planned:</strong> export will warn that exported files may contain sensitive vulnerability details.</li>
+        </ul>
+
+        <h2>Content Security Policy</h2>
+        <p>The Tauri webview enforces a strict CSP (<code>src-tauri/tauri.conf.json</code>):</p>
+        <pre data-lang="text"><code>default-src 'self';
+img-src 'self' asset: https://asset.localhost;
+style-src 'self';
+connect-src 'self' http://127.0.0.1</code></pre>
+        <ul>
+        <li><code>default-src 'self'</code> — no inline scripts, no <code>eval</code>, no remote script/resource loading.</li>
+        <li><code>img-src</code> also allows Tauri's local <code>asset:</code> protocol (bundled assets), not arbitrary remote images.</li>
+        <li><code>connect-src</code> is limited to the app and the local MCP server on <code>127.0.0.1</code>.</li>
+        </ul>
+        <p>The app's Tauri capabilities are minimal — only <code>core:default</code> and
+           <code>opener:default</code>.</p>
+      </article>
+      <nav class="page-nav">
+        <a class="prev" href="file-formats.html">&larr; File formats</a>
+        <span class="spacer"></span>
+      </nav>
+    </main>
+  </div>
+  <footer class="sitefoot">
+    <p>LiteSkill VR guide · <a href="../index.html">home</a> · <a href="https://github.com/liteskill-io/liteskill-vr">source</a></p>
+  </footer>
+</body>
+</html>

@@ -1,22 +1,30 @@
+# Git hooks delegate to the Taskfile (the single source of truth for how each
+# check is invoked). The globs keep hooks fast by only running a check when
+# files it cares about changed.
 pre-commit:
   parallel: true
   commands:
     typecheck:
       glob: "src/**/*.{ts,tsx}"
-      run: pnpm typecheck
+      run: task fe:typecheck
     lint:
       glob: "src/**/*.{ts,tsx}"
-      run: pnpm lint
+      run: task fe:lint
     format-check:
       # Lefthook's `**/` matcher requires at least one path segment, so root-
       # level files need their own pattern alongside the nested one.
       glob:
         - "*.{ts,tsx,js,mjs,cjs,css,html,json,md,yml,yaml}"
         - "**/*.{ts,tsx,js,mjs,cjs,css,html,json,md,yml,yaml}"
-      run: pnpm format:check
+      run: task fe:format:check
     rust-check:
       glob: "src-tauri/src/**/*.rs"
-      run: cd src-tauri && cargo clippy --all-targets -- -D warnings
+      run: task rs:clippy
     rust-fmt:
       glob: "src-tauri/src/**/*.rs"
-      run: cd src-tauri && cargo fmt --check
+      run: task rs:fmt:check
+    docs-check:
+      glob:
+        - "CLAUDE.md"
+        - "Taskfile.yml"
+      run: task docs:check

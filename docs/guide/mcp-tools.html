@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MCP tools — LiteSkill VR</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/logo.svg">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">
+      <img src="../assets/logo.svg" alt="" class="brand-mark">
+      <span class="brand-name">LITESKILL&nbsp;VR</span>
+      <span class="brand-tag">// guide</span>
+    </a>
+    <nav class="top-nav">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Guide</a>
+      <a href="https://github.com/liteskill-io/liteskill-vr">Source</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <p class="sidebar-section">Guide</p>
+      <ul>
+        <li><a href="index.html">Contents</a></li>
+      </ul>
+      <p class="sidebar-section">Specification</p>
+      <ul>
+        <li><a href="introduction.html">Introduction</a></li>
+      </ul>
+      <p class="sidebar-section">Concept</p>
+      <ul>
+        <li><a href="how-it-works.html">How it works</a></li>
+      </ul>
+      <p class="sidebar-section">User Guide</p>
+      <ul>
+        <li><a href="installation.html">Installation</a></li>
+        <li><a href="first-project.html">Your first project</a></li>
+        <li><a href="interface.html">The interface</a></li>
+        <li><a href="agents.html">Working with AI agents</a></li>
+        <li><a href="headless-mcp.html">Headless MCP server</a></li>
+      </ul>
+      <p class="sidebar-section">Development</p>
+      <ul>
+        <li><a href="getting-started.html">Development setup</a></li>
+        <li><a href="building.html">Building from source</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="data-model.html">Data model</a></li>
+        <li><a href="mcp-tools.html" aria-current="page">MCP tools</a></li>
+      </ul>
+      <p class="sidebar-section">Reference</p>
+      <ul>
+        <li><a href="file-formats.html">File formats</a></li>
+        <li><a href="security.html">Security</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+      <article>
+        <h1>MCP Tools</h1>
+        <p>LiteSkill VR hosts an MCP (Model Context Protocol) server that starts
+           automatically when the app opens. It is a <strong>read-write interface</strong>:
+           agents don't just dump findings — they query existing research, review what
+           past sessions discovered, build on prior analysis, and avoid duplicating work.</p>
+
+        <p>For connecting an agent and running a session, see
+           <a href="agents.html">Working with AI agents</a>; this page is the tool
+           reference.</p>
+
+        <h2>Connection</h2>
+        <p>The server runs on HTTP (<code>127.0.0.1</code>) using the MCP streamable-HTTP
+           transport at the <code>/mcp</code> endpoint, and the port is shown in the status
+           bar. Configure Claude Code:</p>
+        <pre data-lang="json"><code>{
+          "mcpServers": {
+            "liteskill": {
+              "url": "http://127.0.0.1:27182"
+            }
+          }
+        }</code></pre>
+        <p>Each agent identifies itself with <code>X-LiteSkill-Author: claude-code</code>
+           on every request; entities it creates are stamped with that author and
+           <code>author_type: "agent"</code>. See also the
+           <a href="headless-mcp.html">headless binary</a>, which exposes the identical
+           tool surface.</p>
+
+        <h2>Design principles</h2>
+        <ol>
+        <li><strong>Read before write</strong> — <code>project_summary</code> and
+            <code>filter</code> orient the agent before it creates anything.</li>
+        <li><strong>Batch writes</strong> — all creates have all-or-nothing batch variants.</li>
+        <li><strong>Duplicate detection</strong> — <code>ioi_create</code> warns on similar entries.</li>
+        <li><strong>Registered vocabularies</strong> — tags and connection types must exist first.</li>
+        <li><strong>Two query modes</strong> — <code>search</code> (full-text) and
+            <code>filter</code> (structured).</li>
+        <li><strong>Session continuity</strong> — <code>changes_since</code> catches an agent up.</li>
+        <li><strong>Mistake recovery</strong> — <code>bulk_delete</code> undoes a bad session.</li>
+        </ol>
+
+        <h2>Tools (31 total)</h2>
+        <h3>Project</h3>
+        <table>
+        <thead><tr><th>Tool</th><th>Params</th><th>Returns</th></tr></thead>
+        <tbody>
+        <tr><td><code>project_get</code></td><td>—</td><td>Project metadata</td></tr>
+        <tr><td><code>project_summary</code></td><td>—</td><td>All items (with note/ioi/connection counts), a project-wide severity breakdown, recent activity (most recently touched items/notes/IOIs), registered tags &amp; connection types. Orients an agent at session start.</td></tr>
+        <tr><td><code>changes_since</code></td><td><code>since</code></td><td>All entities created/updated after the timestamp, grouped by type.</td></tr>
+        </tbody>
+        </table>
+
+        <h3>Tags &amp; connection types</h3>
+        <table>
+        <thead><tr><th>Tool</th><th>Params</th><th>Returns</th></tr></thead>
+        <tbody>
+        <tr><td><code>tag_list</code></td><td>—</td><td><code>Tag[]</code>. Call before tagging anything.</td></tr>
+        <tr><td><code>tag_create</code></td><td><code>name</code>, <code>description</code>, <code>color?</code></td><td><code>Tag</code>. Fails if name exists.</td></tr>
+        <tr><td><code>tag_delete</code></td><td><code>id</code></td><td>void. Removes from all entities.</td></tr>
+        <tr><td><code>connection_type_list</code></td><td>—</td><td><code>ConnectionType[]</code>. Call before connecting.</td></tr>
+        <tr><td><code>connection_type_create</code></td><td><code>name</code>, <code>description</code></td><td><code>ConnectionType</code>. Fails if name exists.</td></tr>
+        <tr><td><code>connection_type_delete</code></td><td><code>id</code></td><td>void. Removes all connections of that type.</td></tr>
+        </tbody>
+        </table>
+
+        <h3>Items</h3>
+        <table>
+        <thead><tr><th>Tool</th><th>Params</th><th>Returns</th></tr></thead>
+        <tbody>
+        <tr><td><code>item_list</code></td><td><code>item_type?</code>, <code>analysis_status?</code>, <code>tags?</code></td><td><code>Item[]</code> with note/ioi/connection counts.</td></tr>
+        <tr><td><code>item_get</code></td><td><code>id</code></td><td><code>Item</code> + all notes + IOIs + connections.</td></tr>
+        <tr><td><code>item_create</code></td><td><code>name</code>, <code>item_type</code>, <code>path?</code>, <code>architecture?</code>, <code>description?</code>, <code>tags?</code></td><td><code>Item</code>. Tags must be registered.</td></tr>
+        <tr><td><code>item_create_batch</code></td><td><code>items: […]</code></td><td><code>Item[]</code>. All-or-nothing.</td></tr>
+        <tr><td><code>item_update</code></td><td><code>id</code>, mutable fields</td><td><code>Item</code></td></tr>
+        <tr><td><code>item_delete</code></td><td><code>id</code></td><td>void. Cascades to notes, IOIs, connections.</td></tr>
+        </tbody>
+        </table>
+
+        <h3>Notes</h3>
+        <table>
+        <thead><tr><th>Tool</th><th>Params</th><th>Returns</th></tr></thead>
+        <tbody>
+        <tr><td><code>note_create</code></td><td><code>item_id</code>, <code>title</code>, <code>content</code>, <code>tags?</code></td><td><code>Note</code></td></tr>
+        <tr><td><code>note_create_batch</code></td><td><code>notes: […]</code></td><td><code>Note[]</code>. All-or-nothing; may span items.</td></tr>
+        <tr><td><code>note_update</code></td><td><code>id</code>, mutable fields</td><td><code>Note</code></td></tr>
+        <tr><td><code>note_delete</code></td><td><code>id</code></td><td>void</td></tr>
+        </tbody>
+        </table>
+
+        <h3>Items of interest</h3>
+        <table>
+        <thead><tr><th>Tool</th><th>Params</th><th>Returns</th></tr></thead>
+        <tbody>
+        <tr><td><code>ioi_create</code></td><td><code>item_id</code>, <code>title</code>, <code>description</code>, <code>location?</code>, <code>severity?</code>, <code>status?</code>, <code>tags?</code></td><td><code>ItemOfInterest</code>. Includes <code>duplicate_warning</code> on a case-insensitive title match or an exact location match. <code>status</code> defaults to <code>draft</code>.</td></tr>
+        <tr><td><code>ioi_create_batch</code></td><td><code>item_id</code>, <code>items: […]</code></td><td><code>ItemOfInterest[]</code>. All-or-nothing.</td></tr>
+        <tr><td><code>ioi_update</code></td><td><code>id</code>, mutable fields</td><td><code>ItemOfInterest</code></td></tr>
+        <tr><td><code>ioi_delete</code></td><td><code>id</code></td><td>void. Cascades to connections.</td></tr>
+        </tbody>
+        </table>
+
+        <h3>Connections</h3>
+        <table>
+        <thead><tr><th>Tool</th><th>Params</th><th>Returns</th></tr></thead>
+        <tbody>
+        <tr><td><code>connection_create</code></td><td><code>source_id</code>, <code>source_type</code>, <code>target_id</code>, <code>target_type</code>, <code>connection_type</code>, <code>description?</code></td><td><code>Connection</code>. Type must be registered.</td></tr>
+        <tr><td><code>connection_create_batch</code></td><td><code>connections: […]</code></td><td><code>Connection[]</code>. All-or-nothing.</td></tr>
+        <tr><td><code>connection_list</code></td><td><code>entity_id</code>, <code>connection_type?</code></td><td><code>Connection[]</code> where entity is source or target.</td></tr>
+        <tr><td><code>connection_list_all</code></td><td>—</td><td>All connections in the project.</td></tr>
+        <tr><td><code>connection_delete</code></td><td><code>id</code></td><td>void</td></tr>
+        </tbody>
+        </table>
+
+        <h3>Search, filter &amp; bulk</h3>
+        <table>
+        <thead><tr><th>Tool</th><th>Params</th><th>Returns</th></tr></thead>
+        <tbody>
+        <tr><td><code>search</code></td><td><code>query</code> (required), <code>entity_type?</code>, <code>tags?</code>, <code>severity?</code>, <code>connection_type?</code>, <code>author_type?</code></td><td>Full-text FTS5 search with highlighted snippets. Optional filters narrow results; a filter that can't apply to an entity kind (e.g. <code>severity</code> on items) drops that kind.</td></tr>
+        <tr><td><code>filter</code></td><td><code>entity_type</code> (required) + optional filters</td><td>Structured query, no text search.</td></tr>
+        <tr><td><code>bulk_delete</code></td><td><code>author?</code>, <code>since?</code>, <code>entity_type?</code></td><td>Deletes all matching entities (≥1 filter required). Returns count.</td></tr>
+        </tbody>
+        </table>
+
+        <h2>Typical agent session</h2>
+        <pre data-lang="text"><code>1. Orient
+           project_summary()      → current state of all research
+           tag_list()             → available tags
+           connection_type_list() → available connection types
+
+        2. Catch up (if not first session)
+           changes_since("2024-01-15T...")
+
+        3. Review a target
+           item_get(id)           → everything known about this item
+
+        4. Analyze (via external tools, e.g. pyghidra-mcp)
+
+        5. Document findings (batch)
+           ioi_create_batch(item_id, [...])
+           note_create(item_id, ...)
+
+        6. Draw connections (batch)
+           connection_create_batch([...])
+
+        7. Structured queries
+           filter(entity_type="item_of_interest", severity="critical")
+
+        8. Correct mistakes
+           bulk_delete(author="claude-code", since="...", entity_type="item_of_interest")</code></pre>
+
+        <h2>Batch errors</h2>
+        <p>If any entry in a batch fails validation, the whole batch is rejected:</p>
+        <pre data-lang="json"><code>{
+          "error": "batch_validation_failed",
+          "index": 3,
+          "message": "Tag 'buffer-overflow' is not registered. Did you mean 'memory-corruption'?",
+          "suggestion": "Call tag_list() to see registered tags, or tag_create() to register a new one."
+        }</code></pre>
+      </article>
+      <nav class="page-nav">
+        <a class="prev" href="data-model.html">&larr; Data model</a>
+        <span class="spacer"></span>
+        <a class="next" href="file-formats.html">File formats &rarr;</a>
+      </nav>
+    </main>
+  </div>
+  <footer class="sitefoot">
+    <p>LiteSkill VR guide · <a href="../index.html">home</a> · <a href="https://github.com/liteskill-io/liteskill-vr">source</a></p>
+  </footer>
+</body>
+</html>

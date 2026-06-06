@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Development setup — LiteSkill VR</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/logo.svg">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">
+      <img src="../assets/logo.svg" alt="" class="brand-mark">
+      <span class="brand-name">LITESKILL&nbsp;VR</span>
+      <span class="brand-tag">// guide</span>
+    </a>
+    <nav class="top-nav">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Guide</a>
+      <a href="https://github.com/liteskill-io/liteskill-vr">Source</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <p class="sidebar-section">Guide</p>
+      <ul>
+        <li><a href="index.html">Contents</a></li>
+      </ul>
+      <p class="sidebar-section">Specification</p>
+      <ul>
+        <li><a href="introduction.html">Introduction</a></li>
+      </ul>
+      <p class="sidebar-section">Concept</p>
+      <ul>
+        <li><a href="how-it-works.html">How it works</a></li>
+      </ul>
+      <p class="sidebar-section">User Guide</p>
+      <ul>
+        <li><a href="installation.html">Installation</a></li>
+        <li><a href="first-project.html">Your first project</a></li>
+        <li><a href="interface.html">The interface</a></li>
+        <li><a href="agents.html">Working with AI agents</a></li>
+        <li><a href="headless-mcp.html">Headless MCP server</a></li>
+      </ul>
+      <p class="sidebar-section">Development</p>
+      <ul>
+        <li><a href="getting-started.html" aria-current="page">Development setup</a></li>
+        <li><a href="building.html">Building from source</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="data-model.html">Data model</a></li>
+        <li><a href="mcp-tools.html">MCP tools</a></li>
+      </ul>
+      <p class="sidebar-section">Reference</p>
+      <ul>
+        <li><a href="file-formats.html">File formats</a></li>
+        <li><a href="security.html">Security</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+      <article>
+        <h1>Development Setup</h1>
+        <p>Just want to run a released build? See <a href="installation.html">Installation</a>.
+           This page covers running LiteSkill VR from source for development.</p>
+
+        <h2>Prerequisites</h2>
+        <ul>
+        <li>Node.js &gt;= 22</li>
+        <li>Rust &gt;= 1.77</li>
+        <li><a href="https://tauri.app/start/prerequisites/#linux">Tauri v2 Linux dependencies</a></li>
+        <li><code>WebKitWebDriver</code> (for E2E tests) — e.g. <code>dnf install webkit2gtk4.1-webdriver</code></li>
+        </ul>
+
+        <h2>Quick start</h2>
+        <pre data-lang="bash"><code>pnpm install
+        pnpm tauri dev</code></pre>
+
+        <h2>Scripts</h2>
+        <table>
+        <thead><tr><th>Script</th><th>Purpose</th></tr></thead>
+        <tbody>
+        <tr><td><code>pnpm dev</code></td><td>Start the Vite dev server</td></tr>
+        <tr><td><code>pnpm tauri dev</code></td><td>Start Tauri dev mode</td></tr>
+        <tr><td><code>pnpm check</code></td><td>Run all checks (typecheck, lint, format, knip, test)</td></tr>
+        <tr><td><code>pnpm check:rust</code></td><td>Run Rust checks (clippy, fmt)</td></tr>
+        <tr><td><code>pnpm check:all</code></td><td>Run both TS and Rust checks</td></tr>
+        <tr><td><code>pnpm test</code></td><td>Run unit tests</td></tr>
+        <tr><td><code>pnpm test:e2e</code></td><td>Run E2E tests (requires a release build)</td></tr>
+        <tr><td><code>pnpm test:coverage</code></td><td>Run tests with coverage</td></tr>
+        </tbody>
+        </table>
+
+        <p>See <a href="building.html">Building from source</a> for producing release
+           bundles, and <a href="https://liteskill.io">liteskill.io</a> for the project
+           homepage.</p>
+      </article>
+      <nav class="page-nav">
+        <a class="prev" href="headless-mcp.html">&larr; Headless MCP server</a>
+        <span class="spacer"></span>
+        <a class="next" href="building.html">Building from source &rarr;</a>
+      </nav>
+    </main>
+  </div>
+  <footer class="sitefoot">
+    <p>LiteSkill VR guide · <a href="../index.html">home</a> · <a href="https://github.com/liteskill-io/liteskill-vr">source</a></p>
+  </footer>
+</body>
+</html>

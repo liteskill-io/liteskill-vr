@@ -6,9 +6,15 @@ LiteSkill VR hosts an MCP (Model Context Protocol) server that starts automatica
 
 The MCP server is a **read-write interface**. Agents don't just dump findings — they query existing research, review what past sessions discovered, build on prior analysis, and avoid duplicating work.
 
+**Human/agent parity (core requirement).** Every mutating tool here is also a
+human CRUD affordance in the desktop UI — there is nothing an agent can do that a
+human cannot. The UI's `mcp_call` IPC command runs this same tool dispatch
+(stamped `author_type: "human"`), and a CI check (`task parity:check`) fails the
+build if any mutating tool lacks a UI control. See [ui.md](ui.md#humanagent-parity).
+
 ## Connection
 
-The MCP server runs on HTTP (`127.0.0.1`) using the MCP HTTP+SSE transport. It starts automatically when LiteSkill VR opens a project. The port is displayed in the status bar.
+The MCP server runs on HTTP (`127.0.0.1`) using the MCP streamable-HTTP transport, served at the `/mcp` endpoint. It starts automatically when LiteSkill VR opens a project. The port is displayed in the status bar.
 
 Configuration for Claude Code's MCP settings:
 
@@ -87,11 +93,11 @@ Human-created entities via the UI use `author_type: "human"` with the OS usernam
 
 ### Project
 
-| Tool              | Params             | Returns                                                                                                                                             |
-| ----------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `project_get`     | —                  | Project metadata                                                                                                                                    |
-| `project_summary` | —                  | All items with status/counts, severity breakdown, recent activity, registered tags, registered connection types. Orients an agent at session start. |
-| `changes_since`   | `since: timestamp` | All entities created or updated after the timestamp, grouped by type.                                                                               |
+| Tool              | Params             | Returns                                                                                                                                                                                                                            |
+| ----------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `project_get`     | —                  | Project metadata                                                                                                                                                                                                                   |
+| `project_summary` | —                  | All items (with note/ioi/connection counts), a project-wide severity breakdown, recent activity (the most recently touched items/notes/IOIs), registered tags, and registered connection types. Orients an agent at session start. |
+| `changes_since`   | `since: timestamp` | All entities created or updated after the timestamp, grouped by type.                                                                                                                                                              |
 
 ### Tags
 
@@ -113,14 +119,14 @@ Default connection types: `calls`, `imports`, `links`, `reads_config`, `writes_c
 
 ### Items
 
-| Tool                | Params                                                                      | Returns                                                                                       |
-| ------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `item_list`         | `item_type?`, `analysis_status?`, `tags?`                                   | `Item[]` with note/ioi/connection counts per item.                                            |
-| `item_get`          | `id`                                                                        | `Item` + all `Note[]` + `ItemOfInterest[]` + `Connection[]`. Always returns the full context. |
-| `item_create`       | `name`, `item_type`, `path?`, `architecture?`, `description`, `tags?`       | `Item`. Tags must be registered.                                                              |
-| `item_create_batch` | `items: Array<{name, item_type, path?, architecture?, description, tags?}>` | `Item[]`. All-or-nothing.                                                                     |
-| `item_update`       | `id`, mutable fields                                                        | `Item`                                                                                        |
-| `item_delete`       | `id`                                                                        | void. Cascades to notes, ioi, connections.                                                    |
+| Tool                | Params                                                                       | Returns                                                                                       |
+| ------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `item_list`         | `item_type?`, `analysis_status?`, `tags?`                                    | `Item[]` with note/ioi/connection counts per item.                                            |
+| `item_get`          | `id`                                                                         | `Item` + all `Note[]` + `ItemOfInterest[]` + `Connection[]`. Always returns the full context. |
+| `item_create`       | `name`, `item_type`, `path?`, `architecture?`, `description?`, `tags?`       | `Item`. Tags must be registered. `description` defaults to empty.                             |
+| `item_create_batch` | `items: Array<{name, item_type, path?, architecture?, description?, tags?}>` | `Item[]`. All-or-nothing.                                                                     |
+| `item_update`       | `id`, mutable fields                                                         | `Item`                                                                                        |
+| `item_delete`       | `id`                                                                         | void. Cascades to notes, ioi, connections.                                                    |
 
 ### Notes
 
@@ -133,29 +139,29 @@ Default connection types: `calls`, `imports`, `links`, `reads_config`, `writes_c
 
 ### Items of Interest
 
-| Tool               | Params                                                                       | Returns                                                                                              |
-| ------------------ | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `ioi_create`       | `item_id`, `title`, `description`, `location?`, `severity?`, `tags?`         | `ItemOfInterest`. Includes `duplicate_warning` if similar title or location exists on the same item. |
-| `ioi_create_batch` | `item_id`, `items: Array<{title, description, location?, severity?, tags?}>` | `ItemOfInterest[]`. All-or-nothing. Each entry includes `duplicate_warning` if applicable.           |
-| `ioi_update`       | `id`, mutable fields                                                         | `ItemOfInterest`                                                                                     |
-| `ioi_delete`       | `id`                                                                         | void. Cascades to connections.                                                                       |
+| Tool               | Params                                                                                | Returns                                                                                                                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ioi_create`       | `item_id`, `title`, `description`, `location?`, `severity?`, `status?`, `tags?`       | `ItemOfInterest`. Includes `duplicate_warning` if a case-insensitive title match (whitespace-trimmed) or an exact location match already exists on the same item. `status` defaults to `draft`. |
+| `ioi_create_batch` | `item_id`, `items: Array<{title, description, location?, severity?, status?, tags?}>` | `ItemOfInterest[]`. All-or-nothing. Each entry includes `duplicate_warning` if applicable.                                                                                                      |
+| `ioi_update`       | `id`, mutable fields                                                                  | `ItemOfInterest`                                                                                                                                                                                |
+| `ioi_delete`       | `id`                                                                                  | void. Cascades to connections.                                                                                                                                                                  |
 
 ### Connections
 
-| Tool                      | Params                                                                                               | Returns                                              |
-| ------------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| `connection_create`       | `source_id`, `source_type`, `target_id`, `target_type`, `connection_type`, `description`             | `Connection`. `connection_type` must be registered.  |
-| `connection_create_batch` | `connections: Array<{source_id, source_type, target_id, target_type, connection_type, description}>` | `Connection[]`. All-or-nothing.                      |
-| `connection_list`         | `entity_id`, `connection_type?`                                                                      | `Connection[]` where entity is source **or** target. |
-| `connection_list_all`     | —                                                                                                    | All connections in the project.                      |
-| `connection_delete`       | `id`                                                                                                 | void                                                 |
+| Tool                      | Params                                                                                                | Returns                                                                              |
+| ------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `connection_create`       | `source_id`, `source_type`, `target_id`, `target_type`, `connection_type`, `description?`             | `Connection`. `connection_type` must be registered. `description` defaults to empty. |
+| `connection_create_batch` | `connections: Array<{source_id, source_type, target_id, target_type, connection_type, description?}>` | `Connection[]`. All-or-nothing.                                                      |
+| `connection_list`         | `entity_id`, `connection_type?`                                                                       | `Connection[]` where entity is source **or** target.                                 |
+| `connection_list_all`     | —                                                                                                     | All connections in the project.                                                      |
+| `connection_delete`       | `id`                                                                                                  | void                                                                                 |
 
 ### Search & Filter
 
-| Tool     | Params                                                                                                             | Returns                                                                                                                          |
-| -------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `search` | `query` (required), `entity_type?`, `tags?`, `severity?`, `connection_type?`, `author_type?`                       | Full-text search via FTS5. Returns matches with highlighted snippets and parent context. All filters optional and combinable.    |
-| `filter` | `entity_type` (required), `tags?`, `severity?`, `connection_type?`, `author_type?`, `item_id?`, `analysis_status?` | Structured query with no text search. Returns matching entities. Use for "all critical IOIs" or "all connections of type calls." |
+| Tool     | Params                                                                                                                                                                                                                                                                         | Returns                                                                                                                                                                                                                                                          |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `search` | `query` (required), `entity_type?`, `tags?`, `severity?`, `connection_type?`, `author_type?`                                                                                                                                                                                   | Full-text search via FTS5 across items, notes, items of interest, and connections, with highlighted snippets. Optional filters narrow results; a filter that can't apply to an entity kind (e.g. `severity` on items) drops that kind from the results entirely. |
+| `filter` | `entity_type` (required) + filters that apply per type: items → `item_type?`, `analysis_status?`, `tags?`; items of interest → `item_id?`, `severity?`, `tags?`, `author_type?`; notes → `item_id?`, `tags?`, `author_type?`; connections → `connection_type?`, `author_type?` | Structured query with no text search. Use for "all critical IOIs" or "all connections of type calls."                                                                                                                                                            |
 
 ### Bulk Operations
 

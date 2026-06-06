@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your first project — LiteSkill VR</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/logo.svg">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">
+      <img src="../assets/logo.svg" alt="" class="brand-mark">
+      <span class="brand-name">LITESKILL&nbsp;VR</span>
+      <span class="brand-tag">// guide</span>
+    </a>
+    <nav class="top-nav">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Guide</a>
+      <a href="https://github.com/liteskill-io/liteskill-vr">Source</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <p class="sidebar-section">Guide</p>
+      <ul>
+        <li><a href="index.html">Contents</a></li>
+      </ul>
+      <p class="sidebar-section">Specification</p>
+      <ul>
+        <li><a href="introduction.html">Introduction</a></li>
+      </ul>
+      <p class="sidebar-section">Concept</p>
+      <ul>
+        <li><a href="how-it-works.html">How it works</a></li>
+      </ul>
+      <p class="sidebar-section">User Guide</p>
+      <ul>
+        <li><a href="installation.html">Installation</a></li>
+        <li><a href="first-project.html" aria-current="page">Your first project</a></li>
+        <li><a href="interface.html">The interface</a></li>
+        <li><a href="agents.html">Working with AI agents</a></li>
+        <li><a href="headless-mcp.html">Headless MCP server</a></li>
+      </ul>
+      <p class="sidebar-section">Development</p>
+      <ul>
+        <li><a href="getting-started.html">Development setup</a></li>
+        <li><a href="building.html">Building from source</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="data-model.html">Data model</a></li>
+        <li><a href="mcp-tools.html">MCP tools</a></li>
+      </ul>
+      <p class="sidebar-section">Reference</p>
+      <ul>
+        <li><a href="file-formats.html">File formats</a></li>
+        <li><a href="security.html">Security</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+      <article>
+        <h1>Your First Project</h1>
+        <p>This walkthrough takes you from a fresh install to your first documented
+           finding — with an AI agent helping. It assumes LiteSkill VR is already
+           <a href="installation.html">installed</a>.</p>
+
+        <blockquote><p><strong>Note.</strong> Today the desktop UI is a
+           <strong>read-only viewer</strong> — you don't type findings into it. Items,
+           notes, and findings are written by an <strong>AI agent over MCP</strong>, and the
+           UI shows them live. This walkthrough reflects that flow.</p></blockquote>
+
+        <h2>1. Open the project</h2>
+        <p>Launch LiteSkill VR. It opens (or creates) <code>project.lsvr</code> in its
+           working directory — this single SQLite file <em>is</em> your project, so keep it
+           somewhere you back up. A new project comes pre-loaded with the default
+           <a href="data-model.html">tags and connection types</a>, so an agent can tag
+           findings immediately.</p>
+
+        <p>The status bar confirms the MCP server is listening and shows its port. Keep
+           that port handy — your agent connects to it next.</p>
+
+        <h2>2. What an item is</h2>
+        <p>An <strong>item</strong> is anything you're analyzing — a binary, a shared
+           object, a kernel module, a script, a config file. It is a documentation
+           entry, not the file itself: you (well, your agent) records metadata such as
+           name (e.g. <code>httpd</code>), type (e.g. <code>elf</code>), optional path and
+           architecture, and registered tags — nothing is uploaded. Items are created
+           through MCP (step&nbsp;4), not typed into the UI.</p>
+
+        <h2>3. Connect an AI agent</h2>
+        <p>Point Claude Code (or Codex) at the MCP server shown in the status bar:</p>
+        <pre data-lang="json"><code>{
+          "mcpServers": {
+            "liteskill": {
+              "url": "http://127.0.0.1:27182"
+            }
+          }
+        }</code></pre>
+        <p>Use the port from your status bar. For per-agent attribution, set the author
+           header (see <a href="agents.html">Working with AI agents</a>). Ask the agent to
+           orient itself — it calls <code>project_summary</code> — then to create your first
+           item (e.g. the <code>httpd</code> binary) with <code>item_create</code>. It
+           appears in the UI immediately.</p>
+
+        <h2>4. Let the agent document</h2>
+        <p>With an analysis backend such as <code>pyghidra-mcp</code> connected too, ask
+           your agent to analyze the binary and record findings. It writes items of
+           interest, notes, and connections through MCP — and they appear in your UI
+           <strong>live</strong>, no refresh needed. A typical agent turn batches its
+           writes so they all land atomically.</p>
+
+        <h2>5. Review and connect the dots</h2>
+        <p>Browse the Dashboard and open items as tabs to read what the agent recorded, and
+           switch to the <a href="interface.html#connection-map">Connection map</a> to see
+           how items relate across the project — which binary links which library, which
+           script spawns which daemon. To triage or correct, drive the agent: ask it to
+           <code>filter</code> for all <code>critical</code> items of interest, to fix or
+           <code>ioi_delete</code> a false positive, or — if a whole session went sideways —
+           to undo its own batch with <code>bulk_delete</code>. (UI-side editing is
+           planned; today corrections go through the agent over MCP.)</p>
+
+        <h2>6. Share or archive</h2>
+        <p>Your project is one <code>.lsvr</code> file. Copy it to back it up, hand it to
+           a teammate, or archive it at the end of an engagement. Deliverable exports
+           (<a href="file-formats.html">markdown report, JSON, SARIF</a>) are planned.</p>
+
+        <blockquote>
+        <p><strong>Next session?</strong> Your agent calls <code>changes_since</code>
+           with the timestamp of its last run to catch up on everything that changed
+           before continuing.</p>
+        </blockquote>
+      </article>
+      <nav class="page-nav">
+        <a class="prev" href="installation.html">&larr; Installation</a>
+        <span class="spacer"></span>
+        <a class="next" href="interface.html">The interface &rarr;</a>
+      </nav>
+    </main>
+  </div>
+  <footer class="sitefoot">
+    <p>LiteSkill VR guide · <a href="../index.html">home</a> · <a href="https://github.com/liteskill-io/liteskill-vr">source</a></p>
+  </footer>
+</body>
+</html>

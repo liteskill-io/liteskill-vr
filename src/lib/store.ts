@@ -2,13 +2,42 @@ import { create } from "zustand";
 
 import type {
   ConnectionType,
+  ExplanationDetail,
+  ExplanationSummary,
   ItemDetail,
   ItemSummary,
   ProjectSnapshot,
   Tag,
 } from "./types";
 
-type RootView = "dashboard" | "connections";
+type RootView = "dashboard" | "connections" | "explanations" | "vocabulary";
+
+export interface FormField {
+  name: string;
+  label: string;
+  type: "text" | "textarea" | "select" | "checkbox" | "tags" | "number";
+  options?: { value: string; label: string }[];
+  required?: boolean;
+  placeholder?: string;
+}
+
+// A modal create/edit form. `tool` is the MCP tool invoked via mcp_call; `hidden`
+// values (ids, parent refs) are merged into the submitted args.
+export interface FormDesc {
+  title: string;
+  tool: string;
+  submitLabel?: string;
+  fields: FormField[];
+  initial?: Record<string, unknown>;
+  hidden?: Record<string, unknown>;
+}
+
+interface ConfirmDesc {
+  title: string;
+  message: string;
+  tool: string;
+  args: Record<string, unknown>;
+}
 
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2.0;
@@ -33,12 +62,20 @@ interface AppState {
   itemDetails: Record<string, ItemDetail>;
   tags: Tag[];
   connectionTypes: ConnectionType[];
+  explanations: ExplanationSummary[];
+  explanationDetails: Record<string, ExplanationDetail>;
   mcpPort: number | null;
 
   openTabs: string[];
   activeTab: string | null;
   // Which root view to render when no item tab is active.
   rootView: RootView;
+  // Selected explanation when rootView === "explanations" (null = list view).
+  selectedExplanation: string | null;
+
+  // Global modal layer for create/edit forms and delete confirms.
+  activeForm: FormDesc | null;
+  confirm: ConfirmDesc | null;
 
   // App-wide zoom, applied via CSS `zoom` on <body>. Persisted per-install.
   zoom: number;
@@ -49,6 +86,13 @@ interface AppState {
   setActiveTab: (id: string | null) => void;
   showDashboard: () => void;
   showConnectionMap: () => void;
+  showExplanations: () => void;
+  openExplanation: (id: string) => void;
+  showVocabulary: () => void;
+  openForm: (form: FormDesc) => void;
+  closeForm: () => void;
+  openConfirm: (confirm: ConfirmDesc) => void;
+  closeConfirm: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
   resetZoom: () => void;
@@ -59,10 +103,15 @@ export const useStore = create<AppState>((set) => ({
   itemDetails: {},
   tags: [],
   connectionTypes: [],
+  explanations: [],
+  explanationDetails: {},
   mcpPort: null,
   openTabs: [],
   activeTab: null,
   rootView: "dashboard",
+  selectedExplanation: null,
+  activeForm: null,
+  confirm: null,
   zoom: loadZoom(),
 
   applySnapshot: (snapshot): void => {
@@ -70,11 +119,17 @@ export const useStore = create<AppState>((set) => ({
     for (const detail of snapshot.details) {
       itemDetails[detail.item.id] = detail;
     }
+    const explanationDetails: Record<string, ExplanationDetail> = {};
+    for (const detail of snapshot.explanation_details) {
+      explanationDetails[detail.id] = detail;
+    }
     set({
       items: snapshot.items,
       itemDetails,
       tags: snapshot.tags,
       connectionTypes: snapshot.connection_types,
+      explanations: snapshot.explanations,
+      explanationDetails,
       mcpPort: snapshot.mcp_port,
     });
   },
@@ -111,6 +166,35 @@ export const useStore = create<AppState>((set) => ({
 
   showConnectionMap: (): void => {
     set({ activeTab: null, rootView: "connections" });
+  },
+
+  showExplanations: (): void => {
+    set({
+      activeTab: null,
+      rootView: "explanations",
+      selectedExplanation: null,
+    });
+  },
+
+  openExplanation: (id): void => {
+    set({ activeTab: null, rootView: "explanations", selectedExplanation: id });
+  },
+
+  showVocabulary: (): void => {
+    set({ activeTab: null, rootView: "vocabulary" });
+  },
+
+  openForm: (form): void => {
+    set({ activeForm: form });
+  },
+  closeForm: (): void => {
+    set({ activeForm: null });
+  },
+  openConfirm: (confirm): void => {
+    set({ confirm });
+  },
+  closeConfirm: (): void => {
+    set({ confirm: null });
   },
 
   zoomIn: (): void => {
