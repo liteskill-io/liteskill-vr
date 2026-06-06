@@ -70,6 +70,30 @@ fn explanation_tools() -> Vec<Value> {
         },
         "required": ["stable_key", "name"]
     });
+    let state_item = json!({
+        "type": "object",
+        "properties": {
+            "stable_key": {"type": "string"},
+            "name": {"type": "string"},
+            "description": {"type": "string"},
+            "is_initial": {"type": "boolean"},
+            "is_terminal": {"type": "boolean"}
+        },
+        "required": ["stable_key", "name"]
+    });
+    let transition_item = json!({
+        "type": "object",
+        "properties": {
+            "stable_key": {"type": "string"},
+            "from_state": {"type": "string", "description": "source state stable_key"},
+            "to_state": {"type": "string", "description": "target state stable_key"},
+            "event": {"type": "string"},
+            "guard": {"type": "string"},
+            "action": {"type": "string"},
+            "description": {"type": "string"}
+        },
+        "required": ["stable_key", "from_state", "to_state"]
+    });
     vec![
         tool(
             "explanation_upsert",
@@ -86,6 +110,8 @@ fn explanation_tools() -> Vec<Value> {
                 "diagram_html": {"type": "string", "description": "Optional HTML diagram (e.g. a table for a packet/struct/protocol layout). Sanitized server-side: scripts, event handlers, and unsafe URLs are stripped — only safe markup is stored."},
                 "claims": {"type": "array", "items": claim_item},
                 "open_questions": {"type": "array", "items": question_item},
+                "states": {"type": "array", "items": state_item, "description": "State-machine states (also creatable one at a time via state_create)"},
+                "transitions": {"type": "array", "items": transition_item, "description": "State-machine transitions; from_state/to_state reference state stable_keys"},
                 "fields": {"type": "array", "items": field_item, "description": "Packet/struct fields (type, offset, size)"}
             }),
             &["stable_key", "title"],

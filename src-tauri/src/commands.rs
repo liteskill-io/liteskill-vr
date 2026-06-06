@@ -31,7 +31,9 @@ pub fn mcp_call(
     args: Value,
 ) -> Result<Value, String> {
     let result = {
-        let db = db.lock().map_err(|e| e.to_string())?;
+        // Recover a poisoned lock (a prior panic) instead of wedging all writes;
+        // SQLite keeps its own consistency, so the guard is safe to reuse.
+        let db = db.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         handlers::dispatch(&db, &tool, &args, &os_username(), "human")
     };
     if result.is_ok() {
@@ -45,7 +47,7 @@ pub fn mcp_call(
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
 pub fn project_snapshot(db: State<'_, DbState>) -> Result<Value, String> {
-    let db = db.lock().map_err(|e| e.to_string())?;
+    let db = db.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
 
     let items = db.item_list(None, None, None).map_err(|e| e.to_string())?;
     let mut details = Vec::with_capacity(items.len());

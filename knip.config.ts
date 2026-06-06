@@ -11,6 +11,8 @@ const config: KnipConfig = {
     // WebdriverIO — loaded by the runner, not imported directly
     "@wdio/local-runner",
     "webdriverio",
+    // Imported by the e2e specs (e2e/**), which are outside knip's `project`.
+    "@wdio/globals",
   ],
 };
 

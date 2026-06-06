@@ -1171,6 +1171,89 @@ mod tests {
     }
 
     #[test]
+    fn field_tools_full_crud_and_offset_ordering() {
+        let db = db();
+        // Inline fields on upsert are accepted and round-trip via explanation_get.
+        let expl = call(
+            &db,
+            "explanation_upsert",
+            &json!({
+                "stable_key": "pkt.1",
+                "title": "LoginRequest",
+                "explanation_type": "packet_format",
+                "fields": [
+                    {"stable_key": "f.magic", "name": "magic", "field_type": "u32", "offset": 0, "size": 4}
+                ]
+            }),
+            "alice",
+            "human",
+        );
+        let eid = expl["explanation"]["id"].as_str().unwrap().to_string();
+        let detail = call(&db, "explanation_get", &json!({"id": eid}), "a", "human");
+        assert_eq!(detail["fields"].as_array().unwrap().len(), 1);
+
+        // Granular create stamps the caller, and a field with no offset sorts last.
+        let typ = call(
+            &db,
+            "field_create",
+            &json!({"explanation_id": eid, "name": "type", "field_type": "u8", "offset": 4, "size": 1}),
+            "alice",
+            "human",
+        );
+        assert_eq!(typ["author_type"], "human");
+        let type_id = typ["id"].as_str().unwrap().to_string();
+        call(
+            &db,
+            "field_create",
+            &json!({"explanation_id": eid, "name": "payload", "field_type": "bytes"}),
+            "alice",
+            "human",
+        );
+
+        let detail = call(&db, "explanation_get", &json!({"id": eid}), "a", "human");
+        let fields = detail["fields"].as_array().unwrap();
+        assert_eq!(fields.len(), 3);
+        assert_eq!(fields[0]["name"], "magic"); // offset 0
+        assert_eq!(fields[1]["name"], "type"); // offset 4
+        assert_eq!(fields[2]["name"], "payload"); // no offset → last
+
+        // Update then delete.
+        let upd = call(
+            &db,
+            "field_update",
+            &json!({"id": type_id, "size": 2}),
+            "a",
+            "human",
+        );
+        assert_eq!(upd["size"], 2);
+        call(&db, "field_delete", &json!({"id": type_id}), "a", "human");
+        let detail = call(&db, "explanation_get", &json!({"id": eid}), "a", "human");
+        assert_eq!(detail["fields"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn batch_create_is_all_or_nothing() {
+        let db = db();
+        // Second entry is missing the required item_type → the whole batch is
+        // rejected and the first (already-created) item is rolled back.
+        let res = dispatch(
+            &db,
+            "item_create_batch",
+            &json!({"items": [
+                {"name": "ok", "item_type": "elf"},
+                {"name": "bad"}
+            ]}),
+            "alice",
+            "agent",
+        );
+        assert!(res.is_err());
+        assert!(
+            db.item_list(None, None, None).unwrap().is_empty(),
+            "a failed batch must leave no items behind"
+        );
+    }
+
+    #[test]
     fn state_machine_tools_and_generated_text() {
         let db = db();
         let expl = call(

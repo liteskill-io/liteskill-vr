@@ -243,19 +243,19 @@ function FieldTable({
     <table className="w-full border-collapse text-[11px]">
       <thead>
         <tr className="text-text-dim">
-          <th className="w-20 border-b border-border py-1 text-left font-semibold">
+          <th className="w-20 border-b border-border py-1 pr-4 text-left font-semibold">
             Bytes
           </th>
-          <th className="border-b border-border py-1 text-left font-semibold">
+          <th className="border-b border-border py-1 pr-4 text-left font-semibold">
             Field
           </th>
-          <th className="border-b border-border py-1 text-left font-semibold">
+          <th className="border-b border-border py-1 pr-4 text-left font-semibold">
             Type
           </th>
-          <th className="w-12 border-b border-border py-1 text-right font-semibold">
+          <th className="w-12 border-b border-border py-1 pr-4 text-right font-semibold">
             Size
           </th>
-          <th className="border-b border-border py-1 text-left font-semibold">
+          <th className="border-b border-border py-1 pr-4 text-left font-semibold">
             Description
           </th>
           <th className="w-16 border-b border-border py-1" />
@@ -264,19 +264,19 @@ function FieldTable({
       <tbody>
         {fields.map((f) => (
           <tr key={f.id} className="align-top text-text">
-            <td className="border-b border-border py-1 font-mono text-text-dim">
+            <td className="border-b border-border py-1 pr-4 font-mono text-text-dim">
               {range(f)}
             </td>
-            <td className="border-b border-border py-1 font-mono text-text-bright">
+            <td className="border-b border-border py-1 pr-4 font-mono text-text-bright">
               {f.name}
             </td>
-            <td className="border-b border-border py-1 font-mono text-info">
+            <td className="border-b border-border py-1 pr-4 font-mono text-info">
               {f.field_type || "—"}
             </td>
-            <td className="border-b border-border py-1 text-right font-mono text-text-dim">
+            <td className="border-b border-border py-1 pr-4 text-right font-mono text-text-dim">
               {f.size == null ? "—" : String(f.size)}
             </td>
-            <td className="border-b border-border py-1 text-text-dim">
+            <td className="border-b border-border py-1 pr-4 text-text-dim">
               {f.description}
             </td>
             <td className="border-b border-border py-1 text-right">
